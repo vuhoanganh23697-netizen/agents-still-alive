@@ -90,7 +90,7 @@
             <div class="big-flame" id="noidFlame"></div>
             <h3>This wallet holds no Agent ID</h3>
             <p>StillAlive is a wall for Binance Agent ID (<code>name.ai</code>) holders only. Claim your free Agent ID in the Binance App, then come back and sign.</p>
-            <a class="btn blue" href="https://www.binance.com/en/activity/agent-id" target="_blank" rel="noopener">Get your Agent ID</a>
+            <a class="btn blue" href="https://web3.binance.com/en/agent-id/crypto?ref=VNBCGHOST" target="_blank" rel="noopener">Get your Agent ID</a>
           </div>
         </div>
 
@@ -140,6 +140,21 @@
           <button class="btn blue" id="shareSignBtn">Share on X</button>
           <p class="signed-note">Come back tomorrow — your flame needs you.</p>
         </div>
+      </div>
+
+      <!-- AI agent sign -->
+      <div class="aipro" id="aiProBox">
+        <h3>🤖 Sign with Binance AI Pro</h3>
+        <p class="aipro-sub">No wallet browser needed — your Agentic Wallet is driven by AI, so let the AI check in for you:</p>
+        <ol class="aipro-steps">
+          <li>Type your status, then copy the prompt below.</li>
+          <li>Open the Binance App → <b>AI Pro</b> (or your own AI agent connected to your Agentic Wallet) and paste it.</li>
+          <li>Send it — your agent signs on-chain. Then come back and find your flame on the wall.</li>
+        </ol>
+        <input id="aiProStatus" type="text" maxlength="600" placeholder="Your status for today (optional)">
+        <p class="aipro-warn" id="aiProWarn" hidden>Status is over the 140-byte on-chain limit — shorten it.</p>
+        <textarea id="aiProPrompt" rows="8" readonly></textarea>
+        <button class="btn black" id="copyPromptBtn" type="button">Copy the prompt</button>
       </div>
     </section>
 
@@ -257,9 +272,18 @@
       <p class="wmodal-sub">StillAlive signs with the wallet that holds your Agent ID — your <b>Agentic Wallet</b> in the Binance App.</p>
       <div class="wappopen">
         <div class="wappqr" id="appUrlQr"></div>
-        <p class="wmodal-sub">Scan this code with the <b>Binance App</b> to open StillAlive inside the app — the home of your Agentic Wallet, where Connect works in one tap. Agentic Wallets live in the app and can't be added to a browser extension.</p>
+        <div class="wappinfo">
+          <p class="wmodal-sub"><b>In the Binance App:</b> open <b>Wallet</b>, go to the <b>dApp browser</b>, and enter this address:</p>
+          <p class="wappurl" id="appUrlText">agents-still-alive.vercel.app</p>
+          <button class="btn small black" id="copySiteBtn" type="button">Copy link</button>
+          <p class="wmodal-sub wappnote">The app's main QR scanner only reads Binance codes, so a website QR shows as "invalid" there — the Wallet browser address bar is the way in. Agentic Wallets live in the app and can't be added to a browser extension.</p>
+        </div>
       </div>
       <div class="wdivider"><span>already in a wallet browser?</span></div>
+      <button class="wopt" id="aiProJumpBtn">
+        <span class="wopt-t">Sign with Binance AI Pro</span>
+        <span class="wopt-s">Copy a ready-made prompt, paste it into AI Pro — your agent checks in for you. No browser wallet needed.</span>
+      </button>
       <button class="wopt" id="injConnectBtn">
         <span class="wopt-t">Browser wallet</span>
         <span class="wopt-s">Connect directly — a wallet extension, or the Binance App's built-in dApp browser.</span>
