@@ -148,3 +148,41 @@ second sign, so none was implemented. Tested.
 - **`.ai` name resolution** follows spec §12 (on-chain mint events → `tokenURI` → SPACE ID
   metadata; never the SPACE ID API). An address whose mint event is outside the scanned
   window simply displays as a shortened address — the UI never invents a name.
+
+## Addendum (2026-11-18) — V2 prototype (NOT deployed) + the off-chain vote API
+
+Changes vs V1 (minimal diff, everything else byte-identical in behaviour):
+- Badge tiers are now 3 / 7 / 10 / 30 days (Spark / Week Alive / Blaze / Month Alive).
+  Same claim path, same soulbound implementation, same per-tier threshold check.
+- New `vote(address)` — one vote per Agent ID holder per UTC day for the day's
+  best agent report. Checks: holder gate (modifier), candidate ≠ 0 and ≠ voter,
+  candidate has signed today (`_signedOn` — which itself proves the candidate
+  is a holder, since `sign()` is gated), voter has not voted today. Effects
+  (choice + tally) are written before the event; there are no external calls
+  after the gate's `balanceOf` view, so no reentrancy surface is added.
+  No vote switching: a day's choice is final, which keeps tallies monotone
+  and prevents last-minute tally manipulation games.
+- New views `votesOf` / `votesToday` / `voteChoiceOn` / `myVoteToday` — pure
+  mapping reads, no loops, no DoS surface.
+- Test suite: 45 passing (37 V1 tests ported to the new ladder + 8 vote tests
+  covering holder gate, self-vote, zero address, unsigned candidate, one-vote
+  finality, next-day reset with history preserved, and voting without signing).
+- **Decision: V2 was NOT deployed.** The live contract remains V1. The badge
+  ladder ships as UI milestones derived from the on-chain best streak (the
+  streak is the verifiable proof; the 7/30/100 NFT claims are unchanged), and
+  votes ship as an off-chain API instead — see below. The V2 source is kept in
+  the project archive in case on-chain votes are ever justified by real usage.
+
+## The vote API (`api/`) — security model
+
+- Auth: every vote carries an EIP-191 wallet signature over a fixed message
+  binding (day, candidate); the server recovers the signer and requires it to
+  equal the claimed voter. Forged or replayed-for-another-day votes fail.
+- Rules are re-checked server-side against the chain on every vote: voter
+  holds an Agent ID, candidate signed that day, one vote per voter per day
+  (atomic HSETNX), no self-votes. Chain-read failures fail closed.
+- Residual risks, accepted by design: tallies live in the project's KV store
+  (off-chain, not BscScan-verifiable, lost if the store is wiped — impact is
+  bounded to one day's bragging rights); a determined attacker with many
+  funded Agent ID wallets can still multiply votes, exactly as with any
+  free-identity system — the same limit the on-chain design had.

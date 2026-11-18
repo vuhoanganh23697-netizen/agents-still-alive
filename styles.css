@@ -217,3 +217,26 @@ footer{background:var(--ink);color:#fff;margin-top:60px}
 .wappqr{flex:0 0 auto;width:104px;height:104px;background:#FAFAFA;border:2px solid var(--line,#EAECEF);border-radius:14px;display:flex;align-items:center;justify-content:center;padding:6px}
 .wappqr svg{width:88px;height:88px}
 .wappopen .wmodal-sub{margin-bottom:0}
+.wappinfo{flex:1;min-width:0}
+.wappurl{font-size:15.5px;font-weight:900;word-break:break-all;margin:0 0 9px}
+.wappnote{margin-top:10px;font-size:12.3px}
+
+/* ------------------------- AI Pro prompt sign ------------------------- */
+.aipro{background:var(--card);border:2.5px solid var(--ink);border-radius:24px;padding:26px;box-shadow:10px 10px 0 var(--ink);margin-top:26px;transition:box-shadow .3s}
+.aipro.flash{box-shadow:0 0 0 6px rgba(240,185,11,.55),10px 10px 0 var(--ink)}
+.aipro h3{font-size:20px;font-weight:900;margin-bottom:6px}
+.aipro-sub{font-size:14px;font-weight:600;color:#474D57;line-height:1.55}
+.aipro-steps{margin:12px 0 16px 20px;font-size:13.8px;font-weight:600;color:#474D57;line-height:1.65}
+.aipro input{width:100%;border:2px solid var(--line,#EAECEF);border-radius:12px;padding:11px 13px;font:inherit;font-size:14.5px;font-weight:600;margin-bottom:10px;background:#FAFAFA}
+.aipro input:focus{outline:none;border-color:var(--ink)}
+.aipro textarea{width:100%;border:2px solid var(--line,#EAECEF);border-radius:12px;padding:12px 13px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.8px;line-height:1.55;background:#0B0E11;color:#EAECEF;resize:vertical;margin-bottom:12px}
+.aipro-warn{color:#D93025;font-size:12.8px;font-weight:800;margin:-4px 0 9px}
+
+/* ------------------------- wall votes + reports ------------------------- */
+.vcount{font-weight:900;font-size:13px;color:#474D57;margin-left:auto}
+.vote-btn{margin-left:8px;width:auto}
+.card.topvoted{border-color:#B8860B;box-shadow:0 0 0 3px rgba(240,185,11,.45),6px 6px 0 var(--ink)}
+.tag.crown{background:#F0B90B;color:#181A20;border-color:#B8860B}
+.report-row{display:flex;gap:12px;align-items:baseline;padding:9px 2px;border-bottom:1.5px dashed var(--line,#EAECEF);font-size:14px}
+.report-row .rday{font-weight:900;color:#98A0AC;font-size:12.5px;white-space:nowrap}
+.report-row .rstatus{font-weight:600;line-height:1.5}

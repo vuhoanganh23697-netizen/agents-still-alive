@@ -190,9 +190,58 @@ Mở link Vercel và đi qua từng mục:
 
 ## Bước 7 — Cách người dùng kết nối ví (không cần cấu hình gì thêm)
 
-StillAlive **không dùng WalletConnect** (quyết định của chủ dự án) và không cần dịch vụ ngoài nào khác. Người dùng kết nối theo 2 đường có sẵn trong bảng Connect:
+StillAlive **không dùng WalletConnect** (quyết định của chủ dự án) và không cần dịch vụ ngoài nào khác. Người dùng điểm danh theo 3 đường:
 
-1. **Trong app Binance (đường chính):** người dùng quét mã QR trong bảng Connect bằng app Binance để mở web ngay trong app, hoặc mở sẵn web trong trình duyệt dApp của mục Ví — bấm Connect là ví Agentic kết nối ngay (web tự ưu tiên provider của Binance Wallet trong app). Đây là đường tự nhiên vì Agent ID chỉ sống trong app: Agentic Wallet dùng khóa MPC trong app Binance, không thể nhập vào extension trình duyệt.
+0. **Binance AI Pro / agent của người dùng (đường tự nhiên nhất):** ngay dưới thẻ ký có khung **"Sign with Binance AI Pro"** — người dùng gõ status, web sinh sẵn 1 prompt chứa địa chỉ contract + hàm `sign(string status)` + status, bấm Copy rồi dán vào Binance AI Pro (hoặc agent bất kỳ đã nối với Agentic Wallet của họ) và gửi. Agent tự gọi contract điểm danh, đúng cách chủ dự án tự điểm danh cho chính mình. Web không chạm vào ví của người dùng ở đường này.
+
+1. **Trong app Binance (đường chính):** người dùng mở app Binance → mục **Ví** → **trình duyệt dApp** → gõ địa chỉ web vào thanh địa chỉ (bảng Connect trên web có sẵn địa chỉ + nút Copy link; KHÔNG quét bằng nút quét QR chính của app vì nút đó chỉ đọc mã Binance, quét link web sẽ báo 'invalid QR code') — web mở trong app thì bấm Connect là ví Agentic kết nối ngay (web tự ưu tiên provider của Binance Wallet trong app). Đây là đường tự nhiên vì Agent ID chỉ sống trong app: Agentic Wallet dùng khóa MPC trong app Binance, không thể nhập vào extension trình duyệt.
 2. **Browser wallet:** ví extension trên máy tính, hoặc trình duyệt dApp — dành cho ví thường. Web gọi thẳng lệnh kết nối tới ví và hiển thị đúng lỗi thật nếu ví từ chối.
 
 Lưu ý bảo mật: KHÔNG dùng kiểu "QR + mã ghép nối đăng nhập Agentic Wallet" mà một số trang dành cho AI agent dùng — Binance chính thức cảnh báo người dùng không quét QR lạ để đăng nhập Agentic Wallet vì trang web sẽ nắm quyền điều khiển ví.
+
+
+---
+
+# PHẦN CẬP NHẬT UI-ONLY (bản hiện tại — KHÔNG deploy lại contract)
+
+Bản cập nhật này giữ nguyên contract V1 đang chạy
+(`0x2f4dE45A01c4C9240C16c789A0F6a7dA77CB5635`) — không mất dữ liệu, streak của
+mọi người còn nguyên. Thay đổi gồm: gỡ nhận diện Binance + ghi rõ unofficial,
+agent tự báo cáo qua prompt AI Pro, badge theo mốc streak 3/7/10/30/100, vote
+"best report" qua API, hồ sơ reports ở profile.
+
+## Bước U1 — Up code (1 lần, up tất cả cùng lúc)
+
+Up toàn bộ gói export lên GitHub như mọi lần: `app.js`, `index.html`,
+`styles.css`, `README.md`, `DEPLOY_GUIDE.md`, `SECURITY_REVIEW.md`,
+`package.json` (có thêm ethers cho API), thư mục `assets` (file mới
+`flame.svg`; xoá 3 file `binance-*.svg` cũ khỏi repo) và **thư mục `api/` mới**
+(2 file vote.js / votes.js + _lib.js). Vercel tự deploy. Sau bước này mọi thứ
+đã chạy, trừ vote (cần Bước U2).
+
+## Bước U2 — Bật vote: tạo kho KV trên Vercel (2 phút, làm 1 lần)
+
+1. Vào **vercel.com → project agents-still-alive → tab Storage → Create Database**.
+2. Chọn **KV (Upstash)** → đặt tên tuỳ ý (ví dụ `stillalive-votes`) → Create.
+3. Bấm **Connect Project** và chọn project agents-still-alive. Vercel tự thêm 2
+   biến môi trường `KV_REST_API_URL` và `KV_REST_API_TOKEN` — không phải copy tay.
+4. **Redeploy** để hàm API nhận biến mới: tab **Deployments** → nút `⋯` ở bản
+   deploy mới nhất → **Redeploy**.
+5. Kiểm tra: mở web, Connect Wallet bằng ví có Agent ID → bấm **Vote ▲** ở một
+   thẻ trên tường → ví hiện yêu cầu **ký tin nhắn** (không tốn gas) → ký → số
+   vote tăng 1 và nút chuyển thành "Voted ✓". Xong.
+
+Ghi chú: điểm vote tính theo ngày UTC và tự hết hạn sau 4 ngày trong kho —
+đúng bản chất "best report of the day". Nếu chưa làm Bước U2, trang vẫn chạy
+bình thường, chỉ là chưa có số vote.
+
+## Bước U3 — Tên miền riêng (làm lúc nào cũng được)
+
+1. Mua domain ở **Cloudflare Registrar** hoặc **Porkbun**. Ưu tiên:
+   `stillalive.ai` → `getstillalive.com` → `stillalive.xyz`.
+2. **Vercel → project → Settings → Domains → Add** → nhập domain.
+3. Tạo bản ghi DNS theo Vercel hướng dẫn tại nơi mua domain: domain gốc dùng
+   bản ghi **A** → `76.76.21.21`; subdomain (www) dùng **CNAME** →
+   `cname.vercel-dns.com`.
+4. Chờ Vercel báo "Valid Configuration" (5–30 phút, HTTPS tự cấp). Từ đó dùng
+   domain riêng thay cho link *.vercel.app.
