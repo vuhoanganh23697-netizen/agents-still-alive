@@ -249,9 +249,29 @@
   </div>
 </footer>
 
+<div class="wmodal" id="walletModal" hidden>
+  <div class="wmodal-card">
+    <button class="wmodal-x" id="walletModalClose" aria-label="Close">×</button>
+    <div id="walletChoices">
+      <h3>Connect a wallet</h3>
+      <p class="wmodal-sub">StillAlive signs with the wallet that holds your Agent ID — your <b>Agentic Wallet</b> in the Binance App.</p>
+      <div class="wappopen">
+        <div class="wappqr" id="appUrlQr"></div>
+        <p class="wmodal-sub">Scan this code with the <b>Binance App</b> to open StillAlive inside the app — the home of your Agentic Wallet, where Connect works in one tap. Agentic Wallets live in the app and can't be added to a browser extension.</p>
+      </div>
+      <div class="wdivider"><span>already in a wallet browser?</span></div>
+      <button class="wopt" id="injConnectBtn">
+        <span class="wopt-t">Browser wallet</span>
+        <span class="wopt-s">Connect directly — a wallet extension, or the Binance App's built-in dApp browser.</span>
+      </button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.4/dist/ethers.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

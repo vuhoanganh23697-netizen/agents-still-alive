@@ -66,6 +66,7 @@ const FLAME_PATH =
 
 /* ------------------------------ state ------------------------------ */
 let readProvider = null;
+let activeProvider = null; // EIP-1193 provider of the live session (injected wallet)
 let contractRO = null;
 let walletProvider = null;
 let signer = null;
@@ -934,7 +935,7 @@ async function ensureChain() {
   const net = await walletProvider.getNetwork();
   if (Number(net.chainId) === CONFIG.chainId) return true;
   try {
-    await getInjected().request({
+    await (activeProvider || getInjected()).request({
       method: "wallet_switchEthereumChain",
       params: [{ chainId: "0x" + CONFIG.chainId.toString(16) }],
     });
@@ -942,7 +943,7 @@ async function ensureChain() {
   } catch (e) {
     if (e && e.code === 4902) {
       try {
-        await getInjected().request({
+        await (activeProvider || getInjected()).request({
           method: "wallet_addEthereumChain",
           params: [
             {
@@ -963,7 +964,40 @@ async function ensureChain() {
   }
 }
 
+function openWalletModal() {
+  $("walletChoices").hidden = false;
+  $("walletModal").hidden = false;
+  const qrBox = $("appUrlQr");
+  if (qrBox && !qrBox.dataset.done && typeof qrcode === "function") {
+    try {
+      const qr = qrcode(0, "M");
+      qr.addData(location.origin + location.pathname);
+      qr.make();
+      qrBox.innerHTML = qr.createSvgTag({ cellSize: 3, margin: 4, scalable: true });
+      qrBox.dataset.done = "1";
+    } catch (_) {}
+  }
+}
+function closeWalletModal() {
+  $("walletModal").hidden = true;
+}
+
 async function connectWallet() {
+  if (DEMO) return connectInjected();
+  openWalletModal();
+}
+
+async function finishConnect() {
+  signer = await walletProvider.getSigner();
+  account = await signer.getAddress();
+  if (DEPLOYED) contractRW = new ethers.Contract(CONFIG.contractAddress, STILLALIVE_ABI, signer);
+  setWalletChip();
+  wireWalletEvents(activeProvider);
+  refreshMyCard();
+  toast("Wallet connected: " + shortAddr(account));
+}
+
+async function connectInjected() {
   if (DEMO) {
     demoState.connected = true;
     account = DEMO_ME;
@@ -972,37 +1006,37 @@ async function connectWallet() {
     toast("Demo wallet connected as alex.ai");
     return;
   }
+  closeWalletModal();
   if (!getInjected()) {
-    renderSignState("locked", "No wallet detected. Open this page inside the Binance App, or install MetaMask, then reload.");
-    toast("No wallet detected. Open in the Binance App or install MetaMask.", true);
+    renderSignState("locked", "No wallet detected. Open this page inside the Binance App, or install a wallet extension, then reload.");
+    toast("No wallet detected. Open in the Binance App or install a wallet extension.", true);
     return;
   }
   try {
-    walletProvider = new ethers.BrowserProvider(getInjected());
-    const accounts = await walletProvider.send("eth_requestAccounts", []);
+    activeProvider = getInjected();
+    // Ask the wallet directly, with nothing in between: some extensions
+    // reject calls routed through a library before they can show their UI.
+    const accounts = await activeProvider.request({ method: "eth_requestAccounts" });
     if (!accounts || !accounts.length) return;
+    walletProvider = new ethers.BrowserProvider(activeProvider);
     if (!(await ensureChain())) {
       account = accounts[0];
       setWalletChip();
       return;
     }
-    signer = await walletProvider.getSigner();
-    account = await signer.getAddress();
-    if (DEPLOYED) contractRW = new ethers.Contract(CONFIG.contractAddress, STILLALIVE_ABI, signer);
-    setWalletChip();
-    wireWalletEvents();
-    refreshMyCard();
-    toast("Wallet connected: " + shortAddr(account));
+    closeWalletModal();
+    await finishConnect();
   } catch (e) {
     toast(humanError(e), true);
   }
 }
 
-let walletWired = false;
-function wireWalletEvents() {
-  if (walletWired || !getInjected()) return;
-  walletWired = true;
-  getInjected().on("accountsChanged", async (accs) => {
+const wiredProviders = new WeakSet();
+function wireWalletEvents(provider) {
+  const p = provider || getInjected();
+  if (!p || wiredProviders.has(p)) return;
+  wiredProviders.add(p);
+  p.on("accountsChanged", async (accs) => {
     if (!accs || !accs.length) {
       account = null;
       signer = null;
@@ -1012,7 +1046,7 @@ function wireWalletEvents() {
       return;
     }
     // Rebuild provider/signer/contract for the new account — never reuse a stale signer.
-    walletProvider = new ethers.BrowserProvider(getInjected());
+    walletProvider = new ethers.BrowserProvider(p);
     signer = await walletProvider.getSigner();
     account = await signer.getAddress();
     if (DEPLOYED) contractRW = new ethers.Contract(CONFIG.contractAddress, STILLALIVE_ABI, signer);
@@ -1020,7 +1054,16 @@ function wireWalletEvents() {
     refreshMyCard();
     toast("Switched account: " + shortAddr(account));
   });
-  getInjected().on("chainChanged", () => location.reload());
+  p.on("chainChanged", () => location.reload());
+  if (typeof p.disconnect === "function") {
+    p.on("disconnect", () => {
+      account = null;
+      signer = null;
+      contractRW = null;
+      setWalletChip();
+      renderSignState("locked", "Wallet disconnected. Connect to sign today's wall.");
+    });
+  }
 }
 
 /* ------------------------------ actions ------------------------------ */
@@ -1187,6 +1230,11 @@ function tickCountdown() {
 function bindUI() {
   $("connectBtn").addEventListener("click", connectWallet);
   $("signConnectBtn").addEventListener("click", connectWallet);
+  $("injConnectBtn").addEventListener("click", connectInjected);
+  $("walletModalClose").addEventListener("click", closeWalletModal);
+  $("walletModal").addEventListener("click", (e) => {
+    if (e.target === $("walletModal")) closeWalletModal();
+  });
   $("logoHome").addEventListener("click", (e) => {
     e.preventDefault();
     showView(false);
@@ -1284,6 +1332,7 @@ async function init() {
     try {
       const accs = await getInjected().request({ method: "eth_accounts" });
       if (accs && accs.length) {
+        activeProvider = getInjected();
         walletProvider = new ethers.BrowserProvider(getInjected());
         if (await ensureChain()) {
           signer = await walletProvider.getSigner();

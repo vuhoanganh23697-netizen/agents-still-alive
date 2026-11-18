@@ -195,3 +195,25 @@ footer{background:var(--ink);color:#fff;margin-top:60px}
   .signcard,.profile-card{padding:20px}
   .hero h1{font-size:33px}
 }
+
+/* ------------------------- wallet connect modal ------------------------- */
+.wmodal{position:fixed;inset:0;background:rgba(24,26,32,.52);display:flex;align-items:center;justify-content:center;z-index:60;padding:18px}
+.wmodal[hidden]{display:none}
+.wmodal-card{background:#fff;border-radius:22px;padding:26px 24px;width:min(450px,94vw);position:relative;box-shadow:0 26px 60px rgba(0,0,0,.3)}
+.wmodal-card h3{font-size:21px;font-weight:900;margin-bottom:5px}
+.wmodal-sub{font-size:13.5px;font-weight:600;color:var(--mut,#707A8A);line-height:1.5;margin-bottom:14px}
+.wmodal-x{position:absolute;top:12px;right:14px;border:none;background:#F5F5F5;width:32px;height:32px;border-radius:50%;font-size:18px;font-weight:900;cursor:pointer;color:#474D57}
+.wopt{display:block;width:100%;text-align:left;background:#FAFAFA;border:2px solid var(--line,#EAECEF);border-radius:16px;padding:15px 16px;margin-top:11px;cursor:pointer;font-family:inherit}
+.wopt:hover{border-color:var(--ink,#181A20)}
+.wopt-t{display:block;font-size:15.5px;font-weight:900}
+.wopt-s{display:block;font-size:12.8px;font-weight:600;color:var(--mut,#707A8A);line-height:1.45;margin-top:3px}
+.wqrcode{display:flex;align-items:center;justify-content:center;min-height:230px;background:#FAFAFA;border:2px solid var(--line,#EAECEF);border-radius:16px;padding:14px;font-weight:800;color:#98A0AC;text-align:center}
+.wqrcode svg{width:230px;height:230px}
+#wcOpenApp{margin-top:14px}
+#wcQrStatus{margin-top:12px;text-align:center}
+.wdivider{display:flex;align-items:center;gap:10px;margin:18px 0 12px;color:#98A0AC;font-size:11.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase}
+.wdivider::before,.wdivider::after{content:"";flex:1;height:2px;background:var(--line,#EAECEF);border-radius:2px}
+.wappopen{display:flex;gap:14px;align-items:center}
+.wappqr{flex:0 0 auto;width:104px;height:104px;background:#FAFAFA;border:2px solid var(--line,#EAECEF);border-radius:14px;display:flex;align-items:center;justify-content:center;padding:6px}
+.wappqr svg{width:88px;height:88px}
+.wappopen .wmodal-sub{margin-bottom:0}
