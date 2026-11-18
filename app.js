@@ -144,12 +144,49 @@ function shareOnX(text) {
 }
 function humanError(e) {
   if (!e) return "Something went wrong.";
-  const raw = e.reason || e.shortMessage || e.message || String(e);
-  if (/user rejected|denied/i.test(raw)) return "Transaction cancelled in the wallet.";
+  // Unwrap ethers' nested wrappers (e.g. "could not coalesce error") down to
+  // the wallet/provider's own message — that is the one that says what failed.
+  let inner = e;
+  const seen = new Set();
+  while (inner && typeof inner === "object" && !seen.has(inner)) {
+    seen.add(inner);
+    const next = inner.error || (inner.info && inner.info.error) || inner.data;
+    if (next && next !== inner) inner = next;
+    else break;
+  }
+  const raw =
+    (inner && (inner.reason || inner.shortMessage || inner.message)) ||
+    e.reason ||
+    e.shortMessage ||
+    e.message ||
+    String(e);
+  console.error("[StillAlive]", e);
+  if (/user rejected|denied|rejected the request/i.test(raw)) return "Request cancelled in the wallet.";
   const m = raw.match(/StillAlive: [^"')]+/);
   if (m) return m[0];
   if (/Agent ID required/.test(raw)) return "This wallet holds no Agent ID.";
+  if (/could not coalesce/i.test(raw))
+    return "The wallet did not answer. Unlock your wallet extension, make sure it is the active wallet in this browser, then try again.";
   return raw.length > 180 ? raw.slice(0, 180) + "…" : raw;
+}
+// Pick the wallet provider to talk to. With several wallet extensions
+// installed, window.ethereum may belong to any of them — prefer Binance
+// Wallet's provider when it is present.
+function pickInjectedProvider() {
+  if (typeof window === "undefined") return null;
+  const candidates = [];
+  if (window.binancew3w && window.binancew3w.ethereum) candidates.push(window.binancew3w.ethereum);
+  if (window.ethereum) {
+    if (Array.isArray(window.ethereum.providers)) candidates.push(...window.ethereum.providers);
+    candidates.push(window.ethereum);
+  }
+  for (const p of candidates) if (p && (p.isBinanceWallet || p.isBinance)) return p;
+  return window.ethereum || candidates[0] || null;
+}
+let _injected = undefined;
+function getInjected() {
+  if (_injected === undefined) _injected = pickInjectedProvider();
+  return _injected;
 }
 function tierOf(best, badges) {
   let top = 0;
@@ -897,7 +934,7 @@ async function ensureChain() {
   const net = await walletProvider.getNetwork();
   if (Number(net.chainId) === CONFIG.chainId) return true;
   try {
-    await window.ethereum.request({
+    await getInjected().request({
       method: "wallet_switchEthereumChain",
       params: [{ chainId: "0x" + CONFIG.chainId.toString(16) }],
     });
@@ -905,7 +942,7 @@ async function ensureChain() {
   } catch (e) {
     if (e && e.code === 4902) {
       try {
-        await window.ethereum.request({
+        await getInjected().request({
           method: "wallet_addEthereumChain",
           params: [
             {
@@ -935,13 +972,13 @@ async function connectWallet() {
     toast("Demo wallet connected as alex.ai");
     return;
   }
-  if (!window.ethereum) {
+  if (!getInjected()) {
     renderSignState("locked", "No wallet detected. Open this page inside the Binance App, or install MetaMask, then reload.");
     toast("No wallet detected. Open in the Binance App or install MetaMask.", true);
     return;
   }
   try {
-    walletProvider = new ethers.BrowserProvider(window.ethereum);
+    walletProvider = new ethers.BrowserProvider(getInjected());
     const accounts = await walletProvider.send("eth_requestAccounts", []);
     if (!accounts || !accounts.length) return;
     if (!(await ensureChain())) {
@@ -963,9 +1000,9 @@ async function connectWallet() {
 
 let walletWired = false;
 function wireWalletEvents() {
-  if (walletWired || !window.ethereum) return;
+  if (walletWired || !getInjected()) return;
   walletWired = true;
-  window.ethereum.on("accountsChanged", async (accs) => {
+  getInjected().on("accountsChanged", async (accs) => {
     if (!accs || !accs.length) {
       account = null;
       signer = null;
@@ -975,7 +1012,7 @@ function wireWalletEvents() {
       return;
     }
     // Rebuild provider/signer/contract for the new account — never reuse a stale signer.
-    walletProvider = new ethers.BrowserProvider(window.ethereum);
+    walletProvider = new ethers.BrowserProvider(getInjected());
     signer = await walletProvider.getSigner();
     account = await signer.getAddress();
     if (DEPLOYED) contractRW = new ethers.Contract(CONFIG.contractAddress, STILLALIVE_ABI, signer);
@@ -983,7 +1020,7 @@ function wireWalletEvents() {
     refreshMyCard();
     toast("Switched account: " + shortAddr(account));
   });
-  window.ethereum.on("chainChanged", () => location.reload());
+  getInjected().on("chainChanged", () => location.reload());
 }
 
 /* ------------------------------ actions ------------------------------ */
@@ -1243,11 +1280,11 @@ async function init() {
   renderDirectory();
 
   // Silent reconnect if the wallet already authorised this site.
-  if (window.ethereum) {
+  if (getInjected()) {
     try {
-      const accs = await window.ethereum.request({ method: "eth_accounts" });
+      const accs = await getInjected().request({ method: "eth_accounts" });
       if (accs && accs.length) {
-        walletProvider = new ethers.BrowserProvider(window.ethereum);
+        walletProvider = new ethers.BrowserProvider(getInjected());
         if (await ensureChain()) {
           signer = await walletProvider.getSigner();
           account = await signer.getAddress();
