@@ -39,6 +39,7 @@ const STILLALIVE_ABI = [
   "function getSignersToday(uint256 offset, uint256 limit) view returns (address[] page, uint256 total)",
   "function getSignersOfDay(uint256 day, uint256 offset, uint256 limit) view returns (address[] page, uint256 total)",
   "function statusOf(uint256 day, address user) view returns (string)",
+  "function hasSignedOn(address user, uint256 day) view returns (bool)",
   "function hasBadge(address user, uint8 tier) view returns (bool)",
   "function badgeThreshold(uint8 tier) view returns (uint256)",
   "function badgeName(uint8 tier) view returns (string)",
@@ -102,6 +103,20 @@ let dirFilter = "all";
 /* ------------------------------ utils ------------------------------ */
 const $ = (id) => document.getElementById(id);
 const shortAddr = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "—");
+/* Search-box matching for an address query: accepts a full address, any
+ * substring of it, or the masked form users see on screen ("0x14f3…4731",
+ * with "…" or "..."). */
+function addrMatchesQuery(addr, q) {
+  const a = lc(addr || "");
+  const query = lc(q || "").replace(/\s/g, "");
+  if (!query) return true;
+  if (query.includes("…") || query.includes("...")) {
+    const parts = query.split(/…|\.\.\./).filter(Boolean);
+    if (!parts.length) return true;
+    return a.startsWith(parts[0]) && (parts.length < 2 || a.endsWith(parts[parts.length - 1]));
+  }
+  return a.includes(query);
+}
 const lc = (a) => (a || "").toLowerCase();
 const todayIndex = () => Math.floor(Date.now() / 86400000);
 
@@ -1232,7 +1247,7 @@ function renderDirectory() {
     const alive = DEMO ? u.signedToday : todaySet.has(lc(u.address));
     if (dirFilter === "alive" && !alive) continue;
     if (dirFilter === "badges" && tierOf(u.best, u.badges) === 0) continue;
-    if (q && !lc(name).includes(q) && !lc(u.address).includes(q)) continue;
+    if (q && !lc(name).includes(q) && !lc(name).includes(q.replace(/\.ai$/, "")) && !addrMatchesQuery(u.address, q)) continue;
     const d = !DEMO && userDetails.get(u.address);
     grid.appendChild(
       wallCard({
@@ -1313,7 +1328,7 @@ async function openProfile(addr) {
   // Header placeholders first.
   setAvatar($("pAvatar"), addr);
   $("pName").innerHTML = nameHTML(addr);
-  $("pAddr").textContent = addr;
+  $("pAddr").textContent = shortAddr(addr);
   $("pSub").textContent = T("Loading on-chain data…");
 
   if (DEMO) {
