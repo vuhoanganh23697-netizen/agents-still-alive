@@ -3,7 +3,8 @@
  * Votes are the one part of StillAlive that cannot live in the V1 contract
  * (it has no vote function), so they live here instead — with the same rules
  * the contract would have enforced, checked against the chain on every call:
- *   - the voter must hold a Binance Agent ID (balanceOf on the gate contract)
+ *   - any wallet may vote (no Agent ID needed — product decision 2026-11-19);
+ *     isHolder() below is kept only as a utility and is no longer enforced
  *   - the candidate must have signed the wall that day (hasSignedOn)
  *   - one vote per voter per day, no self-votes, no switching
  * Authentication is a wallet signature (EIP-191) over a fixed message, so a

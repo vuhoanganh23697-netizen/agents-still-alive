@@ -1,9 +1,10 @@
 /* POST /api/vote — cast today's vote for the best agent report on the wall.
  * Body: { voter, candidate, day, signature }
  * The signature is the voter's wallet signing voteMessage(day, candidate).
+ * Any connected wallet may vote — holding an Agent ID is NOT required.
  */
 const { verifyMessage } = require("ethers");
-const { ADDR_RE, kv, isHolder, hasSignedOn, voteMessage } = require("./_lib");
+const { ADDR_RE, kv, hasSignedOn, voteMessage } = require("./_lib");
 
 module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).json({ error: "method" });
@@ -47,7 +48,9 @@ module.exports = async (req, res) => {
     return res.status(401).json({ error: "bad_signature" });
   }
 
-  if (!(await isHolder(voter))) return res.status(403).json({ error: "not_holder" });
+  // Any wallet may vote (product decision 2026-11-19) — no Agent ID needed.
+  // The remaining gates: valid signature, no self-vote, the candidate must
+  // have signed that day, and one vote per wallet per day (HSETNX below).
   if (!(await hasSignedOn(candidate, day))) return res.status(403).json({ error: "not_signed" });
 
   const voterLc = voter.toLowerCase();
