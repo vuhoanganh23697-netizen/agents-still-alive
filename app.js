@@ -593,10 +593,11 @@ function wallNote(u) {
   const isTop = votes > 0 && votes === dayTopVotes;
   const isToday = wallDayOffset === 0;
   const myVote = DEMO ? demoState.myVote : myVoteTodayAddr;
-  const canVote = isToday && (DEMO ? demoState.connected : account && accountHasID && contractRW);
-  const isSelf = account && lc(u.address) === lc(account);
+  // Voting needs a connected wallet — any wallet, no Agent ID required.
+  // The button always shows on today's wall; doVote prompts to connect.
+  const isSelf = (account && lc(u.address) === lc(account)) || (DEMO && demoState.connected && lc(u.address) === lc(DEMO_ME));
   let voteBtn = "";
-  if (canVote && !isSelf) {
+  if (isToday && !isSelf) {
     if (myVote && lc(myVote) === lc(u.address)) voteBtn = `<button class="wvb" disabled>VOTED ✓</button>`;
     else if (!myVote) voteBtn = `<button class="wvb" data-vote="${u.address}">VOTE ▲</button>`;
   }
@@ -618,6 +619,7 @@ function wallNote(u) {
 
 async function doVote(target, btn) {
   if (DEMO) {
+    if (!demoState.connected) return toast("Connect a wallet to vote — any wallet works, no Agent ID needed.", true);
     demoState.myVote = lc(target);
     const u = demoUsers.find((x) => lc(x.address) === lc(target));
     if (u) u.votes = (u.votes || 0) + 1;
@@ -625,8 +627,10 @@ async function doVote(target, btn) {
     renderWallDemo();
     return;
   }
-  if (!account) return toast("Connect your wallet to vote.", true);
-  if (!accountHasID) return toast("You need an Agent ID to vote.", true);
+  if (!account) {
+    openWalletModal();
+    return toast("Connect your wallet to vote — any wallet works, no Agent ID needed.");
+  }
   if (!signer) return toast("Wallet not ready — reconnect and try again.", true);
   if (btn) {
     btn.disabled = true;
@@ -655,7 +659,6 @@ async function doVote(target, btn) {
     const m = String((e && e.message) || e);
     if (m.includes("already_voted")) toast("You already voted today — one vote per day.", true);
     else if (m.includes("not_configured")) toast("Voting isn't switched on yet — the vote box launches with the site update.", true);
-    else if (m.includes("not_holder")) toast("Only Agent ID holders can vote.", true);
     else if (m.includes("not_signed")) toast("You can only vote for agents who signed today.", true);
     else toast(humanError(e), true);
   }
@@ -952,6 +955,33 @@ function showView(profile) {
   window.scrollTo({ top: 0 });
 }
 
+/* Vote control on the profile: mirrors the wall — any connected wallet
+   can vote for today's report, no Agent ID needed. Hidden when the agent
+   has not signed today or on your own profile. */
+function renderProfileVote(addr, signedToday) {
+  const btn = $("pVoteBtn");
+  if (!btn) return;
+  const isMe = (account && lc(addr) === lc(account)) || (DEMO && demoState.connected && lc(addr) === lc(DEMO_ME));
+  const myVote = DEMO ? demoState.myVote : myVoteTodayAddr;
+  if (!signedToday || isMe) {
+    btn.hidden = true;
+    return;
+  }
+  btn.hidden = false;
+  if (myVote && lc(myVote) === lc(addr)) {
+    btn.disabled = true;
+    btn.textContent = "Voted ✓";
+  } else if (myVote) {
+    btn.disabled = true;
+    btn.textContent = "Voted — one per day";
+  } else {
+    btn.disabled = false;
+    btn.textContent = "Vote for today's report ▲";
+  }
+  const du = DEMO ? demoUsers.find((x) => lc(x.address) === lc(addr)) : null;
+  $("pStatVotes").textContent = DEMO ? (du ? du.votes || 0 : 0) : todayVotes.get(lc(addr)) || 0;
+}
+
 async function openProfile(addr) {
   if (!addr || (!DEMO && !/^0x[0-9a-fA-F]{40}$/.test(addr))) {
     profileAddress = null;
@@ -964,6 +994,7 @@ async function openProfile(addr) {
     $("pStatTotal").textContent = "–";
     $("pStatVotes").textContent = "–";
     $("pNFTs").innerHTML = "";
+    if ($("pVoteBtn")) $("pVoteBtn").hidden = true;
     $("claimPanel").hidden = true;
     $("pReports").innerHTML = "";
     $("pReportsEmpty").hidden = false;
@@ -991,6 +1022,7 @@ async function openProfile(addr) {
     $("pStatBest").textContent = u.best;
     $("pStatTotal").textContent = u.totalSigns + (lc(addr) === lc(DEMO_ME) && demoState.signed ? 1 : 0);
     $("pStatVotes").textContent = u.votes || 0;
+    renderProfileVote(addr, lc(addr) === lc(DEMO_ME) ? u.signedToday || demoState.signed : u.signedToday);
     renderReportsDemo(u);
     renderCollection(addr, u.best, badges, demoVoteWins(addr));
     resolveNames([]);
@@ -999,6 +1031,7 @@ async function openProfile(addr) {
 
   if (!DEPLOYED) {
     $("pSub").textContent = "Contract not deployed yet — collections open after deployment.";
+    renderProfileVote(addr, false);
     renderCollection(addr, 0, [], []);
     return;
   }
@@ -1011,6 +1044,7 @@ async function openProfile(addr) {
     $("pStatBest").textContent = Number(s.bestStreak);
     $("pStatTotal").textContent = Number(s.totalSigns);
     $("pStatVotes").textContent = todayVotes.get(lc(addr)) || 0;
+    renderProfileVote(addr, !!s.signedToday);
     renderReports(addr);
     const badges = [];
     for (const t of TIERS) if (t.nft && (await contractRO.hasBadge(addr, t.nft))) badges.push(t.tier);
@@ -1678,6 +1712,13 @@ function bindUI() {
       idTilt.style.transition = "transform .5s cubic-bezier(.2,.8,.3,1.2)";
       idTilt.style.transform = "";
       idWrap.classList.remove("hovering");
+    });
+  }
+  if ($("pVoteBtn")) {
+    $("pVoteBtn").addEventListener("click", async () => {
+      if (!profileAddress) return;
+      await doVote(profileAddress, $("pVoteBtn"));
+      renderProfileVote(profileAddress, true);
     });
   }
   $("signBtn").addEventListener("click", doSign);
