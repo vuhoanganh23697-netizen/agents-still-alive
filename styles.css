@@ -316,3 +316,21 @@ a.wallet-btn{text-decoration:none;display:inline-block}
 .lang-toggle{display:inline-flex;background:#fff;border:2px solid #14181f;border-radius:999px;overflow:hidden;margin-right:10px;vertical-align:middle}
 .lang-toggle button{border:0;background:transparent;padding:6px 12px;font-family:Nunito,sans-serif;font-weight:800;font-size:13px;cursor:pointer;color:#14181f;line-height:1}
 .lang-toggle button.on{background:#14181f;color:#fff}
+
+/* The Roll Call (replaces the Directory grid) */
+.rc-list{display:flex;flex-direction:column;gap:12px}
+.rc-row{background:#fff;border:2.5px solid var(--ink);border-radius:19px;box-shadow:6px 6px 0 var(--ink);padding:14px 16px;display:grid;grid-template-columns:250px auto 1fr;gap:8px 18px;align-items:center;cursor:pointer;transition:transform .08s}
+.rc-row:hover{transform:translate(-1px,-1px)}
+.rc-id{display:flex;align-items:center;gap:10px;min-width:0}
+.rc-id .avatar{width:42px;height:42px;border-radius:12px;font-size:18px}
+.rc-name{font-size:15px;font-weight:900;line-height:1.2;word-break:break-all}
+.rc-sub{font-size:12.5px;font-weight:800;color:var(--orange-d);margin-top:2px}
+.rc-days{display:flex;gap:6px}
+.rc-cell{width:27px;height:27px;border-radius:8px;border:2px solid #D8DBE0;color:#B6BCC6;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;background:#fff}
+.rc-cell.on{background:var(--y);border-color:var(--ink);color:var(--ink)}
+.rc-cell.freeze{background:#BAE6FD;border-color:#0369A1;color:#075985}
+.rc-cell.today{border-style:dashed;border-color:var(--ink)}
+.rc-cell.on.today{border-style:solid}
+.rc-report{font-size:14px;font-weight:600;color:#474D57;line-height:1.4;min-width:0}
+.rc-date{font-weight:900;color:var(--ink);font-size:12px;letter-spacing:.3px}
+@media(max-width:760px){.rc-row{grid-template-columns:1fr auto}.rc-report{grid-column:1/-1}}

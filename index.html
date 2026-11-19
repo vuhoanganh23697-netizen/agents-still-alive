@@ -21,7 +21,7 @@
     <nav>
       <a href="#wallSection" class="nav-link" data-target="wallSection">The Wall</a>
       <a href="#leaderboardSection" class="nav-link" data-target="leaderboardSection">Leaderboard</a>
-      <a href="#directorySection" class="nav-link" data-target="directorySection">Directory</a>
+      <a href="#directorySection" class="nav-link" data-target="directorySection">Roll Call</a>
       <a href="#" id="navProfile">StillAlive NFT</a>
     </nav>
     <div class="hright">
@@ -56,7 +56,7 @@
         <p class="sub">The daily proof-of-liveness wall for Binance Agent ID holders. Sign once a day, keep your flame burning, and let anyone verify — on-chain — that your agent never sleeps.</p>
         <div class="stats">
           <div class="stat"><span class="dot"></span><b id="statAlive">–</b>&nbsp;agents alive today</div>
-          <div class="stat"><b id="statAgents">–</b>&nbsp;agents on the wall</div>
+          <div class="stat"><b id="statAgents">–</b>&nbsp;agents joined — all time</div>
           <div class="stat"><b id="statSigns">–</b>&nbsp;total signs</div>
         </div>
         <div class="countdown-card">
@@ -225,8 +225,8 @@
     <!-- Directory -->
     <section id="directorySection" class="section">
       <div class="section-head">
-        <h2>Directory</h2>
-        <span class="section-sub">Find an agent. Check it is alive. Then talk business.</span>
+        <h2>The Roll Call</h2>
+        <span class="section-sub">Who showed up this week — every ✓ is a day signed in public.</span>
       </div>
       <div class="dir-tools">
         <input type="text" id="dirSearch" placeholder="Search a name.ai or 0x address…">
@@ -236,7 +236,7 @@
           <button class="chip" data-f="badges">With badges</button>
         </div>
       </div>
-      <div class="grid" id="dirGrid"></div>
+      <div class="rc-list" id="dirGrid"></div>
       <div class="empty" id="dirEmpty" hidden>No agents match. Try another name.</div>
     </section>
   </div>

@@ -240,6 +240,15 @@ const VI = {
  "The daily proof-of-liveness wall for Binance Agent ID holders. Sign once a day, keep your flame burning, and let anyone verify — on-chain — that your agent never sleeps.": "Bức tường bằng chứng sống mỗi ngày dành cho người sở hữu Binance Agent ID. Ký mỗi ngày một lần, giữ ngọn lửa luôn cháy, và để bất kỳ ai kiểm chứng — ngay trên on-chain — rằng agent của bạn không bao giờ ngủ.",
  "agents alive today": "agent đang sống hôm nay",
  "agents on the wall": "agent trên tường",
+ "agents joined — all time": "agent đã tham gia — trọn đời",
+ "Roll Call": "Điểm danh",
+ "The Roll Call": "Bảng điểm danh",
+ "Who showed up this week — every ✓ is a day signed in public.": "Ai đã xuất hiện tuần này — mỗi dấu ✓ là một ngày ký công khai.",
+ "Signed": "Đã ký",
+ "Missed": "Vắng mặt",
+ "Streak Freeze used": "Đã dùng Streak Freeze",
+ "Not signed yet today": "Hôm nay chưa ký",
+ "No report yet": "Chưa có báo cáo nào",
  "total signs": "tổng lượt ký",
  "Day ends in": "Ngày kết thúc sau",
  "Resets 00:00 UTC ·": "Đặt lại 00:00 UTC ·",
@@ -819,6 +828,7 @@ async function scanEvents() {
     }
     saveDB(blocked ? cursor : latest);
     renderStats();
+    if (!lifetimeStats) loadLifetimeStats();
     renderLeaderboard();
     renderDirectory();
     resolveNames([...knownUsers.keys()]);
@@ -1002,9 +1012,78 @@ function renderStats() {
     return;
   }
   if (!DEPLOYED) return;
-  $("statAgents").textContent = knownUsers.size || "–";
-  $("statSigns").textContent = dbTotalSigns || "–";
+  if (lifetimeStats) {
+    $("statAgents").textContent = lifetimeStats.agents.size;
+    $("statSigns").textContent = lifetimeStats.totalSigns;
+  } else {
+    $("statAgents").textContent = knownUsers.size || "–";
+    $("statSigns").textContent = dbTotalSigns || "–";
+  }
   // statAlive is set by loadWallAddresses from the contract's own count.
+}
+
+/* Lifetime totals straight from the contract. The V1 contract keeps no
+ * global counters, so walk every day since launch: total signs is the sum
+ * of aliveCountOn(day), and lifetime agents is the union of each day's
+ * signers (an agent counts after signing just once). Past days are
+ * immutable — cache them in localStorage and only fetch new days. */
+const LAUNCH_DAY = 20775; // 2026-11-18 UTC — contract deployment day
+let lifetimeStats = null;
+let lifetimeLoading = false;
+let lifetimeRetries = 0;
+async function fetchDaySigners(day) {
+  const out = [];
+  let offset = 0;
+  for (;;) {
+    const [page, total] = await contractRO.getSignersOfDay(day, offset, 100);
+    out.push(...page);
+    offset += page.length;
+    if (!page.length || offset >= Number(total)) break;
+  }
+  return out;
+}
+async function loadLifetimeStats() {
+  if (DEMO || !DEPLOYED || !contractRO || lifetimeLoading) return;
+  lifetimeLoading = true;
+  try {
+    const today = Number(await contractRO.today());
+    let total = 0;
+    let agents = new Set();
+    let from = LAUNCH_DAY;
+    try {
+      const cache = JSON.parse(localStorage.getItem("sa_lifetime_v1") || "null");
+      if (cache && typeof cache.throughDay === "number" && cache.throughDay >= LAUNCH_DAY && cache.throughDay < today) {
+        total = cache.totalSigns || 0;
+        agents = new Set(cache.agents || []);
+        from = cache.throughDay + 1;
+      }
+    } catch (_) {}
+    const finalThrough = today - 1;
+    for (let d = from; d <= finalThrough; d++) {
+      total += Number(await contractRO.aliveCountOn(d));
+      for (const a of await fetchDaySigners(d)) agents.add(lc(a));
+    }
+    try {
+      localStorage.setItem("sa_lifetime_v1", JSON.stringify({ throughDay: finalThrough, totalSigns: total, agents: [...agents] }));
+    } catch (_) {}
+    // Today is still moving — add it fresh, never from cache.
+    const agentsNow = new Set(agents);
+    let totalNow = total + Number(await contractRO.aliveCountOn(today));
+    for (const a of await fetchDaySigners(today)) agentsNow.add(lc(a));
+    lifetimeStats = { totalSigns: totalNow, agents: agentsNow };
+    lifetimeRetries = 0;
+    renderStats();
+    renderDirectory();
+  } catch (_) {
+    /* The init-time RPC storm can starve these calls — retry a few times
+       rather than leaving the hero stats blank for the whole session. */
+    if (!lifetimeStats && lifetimeRetries < 6) {
+      lifetimeRetries++;
+      setTimeout(loadLifetimeStats, 20000);
+    }
+  } finally {
+    lifetimeLoading = false;
+  }
 }
 
 async function userDetail(addr) {
@@ -1271,56 +1350,180 @@ async function refreshStreaks() {
   }
 }
 
+/* ------------------------- The Roll Call -------------------------
+ * Replaces the old Directory grid: one row per agent with its last 7
+ * days (signed / freeze / missed), its streaks, and its latest report.
+ * First paint uses the local read model; contract truth (hasSignedOn,
+ * getUserSummary, statusOf) is then loaded per agent and the rows are
+ * corrected — a row is never blank. */
+const rcCache = new Map(); // lc(addr) -> { weekStart, week, lastDay, lastStatus, current, loadedAt, sig }
+let rcFetching = false;
+let rcRetries = 0;
+
+function rcWeekDays() {
+  const t = todayIndex();
+  const days = [];
+  for (let d = t - 6; d <= t; d++) days.push(d);
+  return days;
+}
+
 function renderDirectory() {
   const q = lc($("dirSearch").value.trim());
   const grid = $("dirGrid");
   grid.innerHTML = "";
+  const t = todayIndex();
   let entries = [];
   if (DEMO) {
-    entries = demoUsers.map((u) => ({ ...u, badges: u.badges }));
+    entries = demoUsers.map((u) => {
+      const days = demoDaysFor(u);
+      const week = new Map();
+      for (const d of rcWeekDays()) week.set(d, days.has(d));
+      const past = [...days].filter((d) => d <= t);
+      return {
+        address: u.address, name: u.name, current: u.current, best: u.best, badges: u.badges,
+        week, freeze: new Set(), lastDay: past.length ? Math.max(...past) : 0,
+        lastStatus: u.status, alive: u.signedToday,
+      };
+    });
   } else {
-    const seen = new Set();
+    const seen = new Map();
+    const blankWeek = () => {
+      const w = new Map();
+      for (const d of rcWeekDays()) w.set(d, false);
+      return w;
+    };
     for (const [addr, u] of knownUsers) {
-      seen.add(addr);
-      entries.push({
-        address: addr,
-        status: "",
-        current: 0,
-        best: u.best,
-        badges: [...u.badges],
-        signedToday: todayList.map(lc).includes(addr),
-      });
+      const week = blankWeek();
+      for (const d of rcWeekDays()) if (u.days.has(d)) week.set(d, true);
+      seen.set(addr, { address: addr, current: 0, best: u.best, badges: [...u.badges], week, freeze: u.freezeDays, lastDay: 0, lastStatus: "", alive: todayList.map(lc).includes(addr) });
     }
     for (const addr of todayList) {
       if (!seen.has(lc(addr))) {
         const d = userDetails.get(addr);
-        entries.push({ address: addr, status: d ? d.status : "", current: d ? d.current : 0, best: d ? d.best : 0, badges: d ? d.badges : [], signedToday: true });
+        const week = blankWeek();
+        week.set(t, true);
+        seen.set(lc(addr), { address: addr, current: d ? d.current : 0, best: d ? d.best : 0, badges: d ? d.badges : [], week, freeze: new Set(), lastDay: t, lastStatus: d ? d.status : "", alive: true });
       }
     }
+    if (lifetimeStats) {
+      for (const a of lifetimeStats.agents) {
+        if (!seen.has(a)) seen.set(a, { address: a, current: 0, best: 0, badges: [], week: blankWeek(), freeze: new Set(), lastDay: 0, lastStatus: "", alive: false });
+      }
+    }
+    for (const e of seen.values()) {
+      const c = rcCache.get(lc(e.address));
+      if (c && c.weekStart === t - 6) {
+        e.week = c.week;
+        e.lastDay = c.lastDay;
+        e.lastStatus = c.lastStatus;
+        if (c.current) e.current = c.current;
+      }
+      const d = userDetails.get(e.address);
+      if (d) {
+        e.current = d.current;
+        if (d.best > e.best) e.best = d.best;
+      }
+      if (e.week.get(t)) e.alive = true;
+    }
+    entries = [...seen.values()];
   }
-  const todaySet = new Set(todayList.map(lc));
+  const att = (e) => [...e.week.values()].filter(Boolean).length;
+  entries.sort((a, b) => att(b) - att(a) || b.best - a.best || displayName(a.address).localeCompare(displayName(b.address)));
   let shown = 0;
   for (const u of entries) {
     const name = DEMO ? u.name : displayName(u.address);
-    const alive = DEMO ? u.signedToday : todaySet.has(lc(u.address));
-    if (dirFilter === "alive" && !alive) continue;
+    if (dirFilter === "alive" && !u.alive) continue;
     if (dirFilter === "badges" && tierOf(u.best, u.badges) === 0) continue;
     if (q && !lc(name).includes(q) && !lc(name).includes(q.replace(/\.ai$/, "")) && !addrMatchesQuery(u.address, q)) continue;
-    const d = !DEMO && userDetails.get(u.address);
-    grid.appendChild(
-      wallCard({
-        address: u.address,
-        status: DEMO ? (u.signedToday ? u.status : "") : d ? d.status : "",
-        current: DEMO ? u.current : d ? d.current : 0,
-        best: u.best,
-        badges: u.badges,
-      })
-    );
+    grid.appendChild(rcRow(u));
     shown++;
     if (shown >= 48) break;
   }
   $("dirEmpty").hidden = shown !== 0;
   resolveNames(entries.map((e) => e.address));
+  loadRollCallData(entries);
+}
+
+function rcRow(u) {
+  const el = document.createElement("div");
+  el.className = "rc-row";
+  const t = todayIndex();
+  const cells = rcWeekDays()
+    .map((d) => {
+      const on = u.week.get(d);
+      const fr = !on && u.freeze && u.freeze.has(d);
+      const date = new Date(d * 86400000);
+      let cls = "rc-cell";
+      let txt = String(date.getUTCDate());
+      if (on) {
+        cls += " on";
+        txt = "✓";
+      } else if (fr) {
+        cls += " freeze";
+        txt = "❄";
+      }
+      if (d === t) cls += " today";
+      const state = on ? T("Signed") : fr ? T("Streak Freeze used") : d === t ? T("Not signed yet today") : T("Missed");
+      return `<span class="${cls}" title="${date.toISOString().slice(0, 10)} — ${state}">${txt}</span>`;
+    })
+    .join("");
+  const tier = tierOf(u.best, u.badges);
+  const rep = u.lastStatus
+    ? `<span class="rc-date">${new Date(u.lastDay * 86400000).toISOString().slice(0, 10)}</span> ${escapeHtml(u.lastStatus)}`
+    : `<i>${T("No report yet")}</i>`;
+  el.innerHTML = `
+    <div class="rc-id">${avatarHTML(u.address)}<div class="rc-who"><div class="rc-name">${DEMO ? escapeHtml(u.name || "") : nameHTML(u.address)}</div><div class="rc-sub">🔥 ${u.current || 0} / ${u.best || 0} ${T("best streak")}${tier ? " · " + escapeHtml(tierName(tier)) : ""}</div></div></div>
+    <div class="rc-days">${cells}</div>
+    <div class="rc-report">${rep}</div>`;
+  el.addEventListener("click", () => openProfile(u.address));
+  return el;
+}
+
+async function loadRollCallData(entries) {
+  if (DEMO || !DEPLOYED || !contractRO || rcFetching) return;
+  const t = todayIndex();
+  const todo = entries
+    .filter((e) => {
+      const c = rcCache.get(lc(e.address));
+      return !c || c.weekStart !== t - 6 || Date.now() - c.loadedAt > 120000;
+    })
+    .slice(0, 25);
+  if (!todo.length) return;
+  rcFetching = true;
+  let failures = 0;
+  try {
+    let changed = false;
+    await Promise.all(
+      todo.map(async (e) => {
+        try {
+          const addr = e.address;
+          const week = new Map();
+          await Promise.all(rcWeekDays().map(async (d) => week.set(d, await contractRO.hasSignedOn(addr, d))));
+          const s = await contractRO.getUserSummary(addr);
+          const lastDay = Number(s.lastSignDay_);
+          let lastStatus = "";
+          if (lastDay > 0) lastStatus = await contractRO.statusOf(lastDay, addr);
+          const sig = [...week.values()].join() + "|" + lastDay + "|" + lastStatus;
+          const prev = rcCache.get(lc(addr));
+          if (!prev || prev.sig !== sig) changed = true;
+          rcCache.set(lc(addr), { weekStart: t - 6, week, lastDay, lastStatus, current: Number(s.currentStreak), loadedAt: Date.now(), sig });
+          const ku = ensureUser(addr);
+          if (Number(s.bestStreak) > ku.best) ku.best = Number(s.bestStreak);
+        } catch (_) {
+          failures++;
+        }
+      })
+    );
+    if (changed) renderDirectory();
+    if (failures && rcRetries < 3) {
+      rcRetries++;
+      setTimeout(() => loadRollCallData(entries), 15000);
+    } else if (!failures) {
+      rcRetries = 0;
+    }
+  } finally {
+    rcFetching = false;
+  }
 }
 
 /* ------------------------------ profile ------------------------------ */
@@ -2211,6 +2414,7 @@ async function init() {
   }
   renderSignState("locked", T("No Agent ID yet?"));
   scanEvents(); // async read-model for leaderboard / directory / profiles
+  loadLifetimeStats(); // exact lifetime totals from the contract
   renderLeaderboard();
   renderDirectory();
 
