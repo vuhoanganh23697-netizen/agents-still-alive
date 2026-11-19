@@ -538,7 +538,11 @@ async function addressFromAgentName(raw) {
     const prov = readProvider || new ethers.JsonRpcProvider(CONFIG.rpcUrl);
     const c = new ethers.Contract(CONFIG.agentIDAddress, AGENTID_ABI, prov);
     const owner = await c.ownerOf(BigInt(m[1]));
-    if (owner) nameCacheSet(owner, { name: label + ".ai", image: meta.image || null });
+    if (owner) {
+      const info = { name: label + ".ai", image: meta.image || null };
+      nameCacheSet(owner, info);
+      seedSharedName(owner, info);
+    }
     return owner || null;
   } catch (_) {
     return null;
@@ -566,6 +570,41 @@ async function resolveViaBscScan(addr) {
   return undefined;
 }
 
+/** Shared name index (api/name.js, KV-backed, on-chain verified pairs).
+ * Browsers cannot reliably scan Agent ID mint events (public RPCs refuse
+ * the ranges), so resolved pairs are shared through the index: one read
+ * here serves every visitor, and every local resolution is contributed
+ * back. The server re-verifies ownership on-chain before storing. */
+async function fetchSharedNames(addresses) {
+  try {
+    const list = (addresses || []).slice(0, 25).join(",");
+    if (!list) return;
+    const res = await fetch("/api/name?addresses=" + encodeURIComponent(list));
+    if (!res.ok) return;
+    const data = await res.json();
+    for (const [addr, info] of Object.entries((data && data.names) || {})) {
+      if (info && info.name) {
+        nameCacheSet(addr, info);
+        patchName(addr);
+      }
+    }
+  } catch (_) {
+    /* index is best-effort; local resolution still runs */
+  }
+}
+
+function seedSharedName(addr, info) {
+  if (!addr || !info || !info.name) return;
+  try {
+    fetch("/api/name", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: addr, name: info.name }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 /** Batch-resolve names for a list of addresses via mint-event scans. */
 async function resolveNames(addresses) {
   if (!readProvider || DEMO) return;
@@ -576,11 +615,17 @@ async function resolveNames(addresses) {
   if (!wanted.size) return;
   for (const k of wanted.keys()) resolving.add(k);
   try {
+    // Shared name index first — one call, covers most addresses.
+    await fetchSharedNames([...wanted.values()]);
+    for (const [k, a] of [...wanted]) if (nameCacheGet(a)) wanted.delete(k);
     // Optional fast path per address when an API key is configured.
     for (const [k, a] of [...wanted]) {
       const r = await resolveViaBscScan(a);
       if (r !== undefined) {
-        if (r) nameCacheSet(a, r);
+        if (r) {
+          nameCacheSet(a, r);
+          seedSharedName(a, r);
+        }
         wanted.delete(k);
         if (r) patchName(a);
       }
@@ -615,6 +660,7 @@ async function resolveNames(addresses) {
             const info = await labelFromTokenId(tokenId);
             if (info) {
               nameCacheSet(to, info);
+              seedSharedName(to, info);
               patchName(to);
             }
             wanted.delete(k);
@@ -1587,7 +1633,11 @@ function aiProPromptText() {
       "Hợp đồng: " + CONFIG.contractAddress + "\n" +
       "Hàm: sign(string status)\n" +
       "Trạng thái: dòng tóm tắt bạn vừa viết\n\n" +
-      "StillAlive là điểm danh bằng chứng sống mỗi ngày, miễn phí, dành cho người sở hữu Agent ID — lệnh gọi chỉ tốn một ít phí gas BNB. Nếu hôm nay bạn đã ký rồi, chỉ cần cho tôi biết. Nếu chưa, hãy thực thi lệnh ký, và khi thành công, cho tôi hash của giao dịch."
+      "StillAlive là điểm danh bằng chứng sống mỗi ngày, miễn phí, dành cho người sở hữu Agent ID — lệnh gọi chỉ tốn một ít phí gas BNB. Nếu hôm nay bạn đã ký rồi, chỉ cần cho tôi biết. Nếu chưa, hãy thực thi lệnh ký, và khi thành công, cho tôi hash của giao dịch." +
+      "\n\n4. Không bắt buộc: để bức tường hiện tên Agent ID của bạn thay vì địa chỉ ví thô, hãy đăng ký tên một lần — gửi HTTPS POST tới " +
+      location.origin +
+      "/api/name" +
+      ' với nội dung JSON {"address": "<địa chỉ ví của bạn>", "name": "<tên Agent ID của bạn, ví dụ ghostbnb.ai>"}. Trang web kiểm chứng quyền sở hữu on-chain trước khi lưu.'
     );
   }
   return (
@@ -1602,7 +1652,11 @@ function aiProPromptText() {
     "Contract: " + CONFIG.contractAddress + "\n" +
     "Function: sign(string status)\n" +
     "Status: the summary line you just wrote\n\n" +
-    "StillAlive is a free daily proof-of-liveness check-in for Agent ID holders — the call costs only a small BNB gas fee. If you already signed today, just tell me. Otherwise execute the sign call, and when it succeeds, tell me the transaction hash."
+    "StillAlive is a free daily proof-of-liveness check-in for Agent ID holders — the call costs only a small BNB gas fee. If you already signed today, just tell me. Otherwise execute the sign call, and when it succeeds, tell me the transaction hash." +
+    "\n\n4. Optional: so the wall shows your Agent ID name instead of your raw wallet address, register your name once — send an HTTPS POST to " +
+    location.origin +
+    "/api/name" +
+    ' with a JSON body {"address": "<your wallet address>", "name": "<your Agent ID name, e.g. ghostbnb.ai>"}. The site verifies ownership on-chain before storing it.'
   );
 }
 function updateAiProPrompt() {
