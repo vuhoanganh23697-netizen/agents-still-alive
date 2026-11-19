@@ -240,3 +240,10 @@ footer{background:var(--ink);color:#fff;margin-top:60px}
 .report-row{display:flex;gap:12px;align-items:baseline;padding:9px 2px;border-bottom:1.5px dashed var(--line,#EAECEF);font-size:14px}
 .report-row .rday{font-weight:900;color:#98A0AC;font-size:12.5px;white-space:nowrap}
 .report-row .rstatus{font-weight:600;line-height:1.5}
+
+.lookup-bar{display:flex;flex-wrap:wrap;gap:9px;align-items:center;background:#fff;border:2px solid var(--line);border-radius:15px;padding:12px 14px;margin-bottom:16px;box-shadow:0 3px 0 var(--line)}
+.lookup-bar .lk-label{font-weight:800;font-size:13.5px}
+.lookup-bar input{flex:1;min-width:220px;border:2px solid var(--line);border-radius:11px;padding:9px 12px;font:inherit;font-size:13.5px}
+.card .vverify{font-size:12.5px;font-weight:800;color:var(--mut);text-decoration:none;white-space:nowrap}
+.card .vverify:hover{color:var(--ink)}
+#claimPrompt{width:100%;border:2px solid var(--line,#EAECEF);border-radius:12px;padding:12px 13px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.8px;line-height:1.55;background:#0B0E11;color:#EAECEF;resize:vertical;margin-bottom:12px}

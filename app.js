@@ -538,10 +538,10 @@ function wallCard(u, opts) {
     <div class="top">${avatarHTML(u.address)}<div class="name">${nameHTML(u.address)}</div></div>
     <div class="status">${u.status ? escapeHtml(u.status) : "<i>No status today.</i>"}</div>
     <div class="foot">${flameSVG(true, 16)} ${u.current}${badgeTag(top)}${isTop ? `<span class="tag crown">👑 Top report</span>` : ""}
-      <span class="vcount">▲ ${votes} vote${votes === 1 ? "" : "s"}</span>${voteBtn}
+      <span class="vcount">▲ ${votes} vote${votes === 1 ? "" : "s"}</span>${voteBtn}<a class="vverify" href="https://bscscan.com/address/${u.address}" target="_blank" rel="noopener">Verify ↗</a>
     </div>`;
   el.addEventListener("click", (e) => {
-    if (e.target.closest("[data-vote]")) return;
+    if (e.target.closest("[data-vote]") || e.target.closest("a")) return;
     openProfile(u.address);
   });
   const vb = el.querySelector("[data-vote]");
@@ -799,8 +799,29 @@ function showView(profile) {
 }
 
 async function openProfile(addr) {
+  if (!addr || !/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+    profileAddress = null;
+    showView(true);
+    $("pName").textContent = "StillAlive NFT";
+    $("pAddr").textContent = "Paste an agent wallet address above to view its collection.";
+    $("pSub").textContent = "No wallet connection needed — collections are read straight from the chain.";
+    $("pStatCur").textContent = "–";
+    $("pStatBest").textContent = "–";
+    $("pStatTotal").textContent = "–";
+    $("pStatVotes").textContent = "–";
+    $("pNFTs").innerHTML = "";
+    $("claimPanel").hidden = true;
+    $("pReports").innerHTML = "";
+    $("pReportsEmpty").hidden = false;
+    const inp0 = $("nftAddrInput");
+    if (inp0) inp0.focus();
+    return;
+  }
+  try { localStorage.setItem("sa_nft_addr", addr); } catch (_) {}
   profileAddress = addr;
   showView(true);
+  $("nftAddrInput").value = addr;
+  $("pScanBtn").href = "https://bscscan.com/address/" + addr;
   const isMe = account && lc(addr) === lc(account);
   // Header placeholders first.
   setAvatar($("pAvatar"), addr);
@@ -817,16 +838,14 @@ async function openProfile(addr) {
     $("pStatTotal").textContent = u.totalSigns + (lc(addr) === lc(DEMO_ME) && demoState.signed ? 1 : 0);
     $("pStatVotes").textContent = u.votes || 0;
     renderReportsDemo(u);
-    renderHeatmap(demoDaysFor(u));
-    renderBadges(addr, u.best, badges, isMe || lc(addr) === lc(DEMO_ME));
+    renderCollection(addr, u.best, badges, demoVoteWins(addr));
     resolveNames([]);
     return;
   }
 
   if (!DEPLOYED) {
-    $("pSub").textContent = "Contract not deployed yet — profiles open after deployment.";
-    renderHeatmap(new Set());
-    renderBadges(addr, 0, [], false);
+    $("pSub").textContent = "Contract not deployed yet — collections open after deployment.";
+    renderCollection(addr, 0, [], []);
     return;
   }
 
@@ -841,13 +860,8 @@ async function openProfile(addr) {
     renderReports(addr);
     const badges = [];
     for (const t of TIERS) if (t.nft && (await contractRO.hasBadge(addr, t.nft))) badges.push(t.tier);
-    // Merge authoritative state into the event-derived heatmap (the scan may
-    // lag a just-confirmed sign by a few seconds).
-    const heatDays = new Set(ku.days);
-    if (s.signedToday) heatDays.add(todayIndex());
-    if (Number(s.lastSignDay_) > 0) heatDays.add(Number(s.lastSignDay_));
-    renderHeatmap(heatDays);
-    renderBadges(addr, Number(s.bestStreak), badges, isMe);
+    const wins = await loadVoteWins(addr);
+    renderCollection(addr, Number(s.bestStreak), badges, wins);
     resolveNames([addr]);
   } catch (e) {
     $("pSub").textContent = "Could not load this profile. " + humanError(e);
@@ -906,31 +920,88 @@ function renderHeatmap(daysSet) {
   }
 }
 
-function renderBadges(addr, best, claimedBadges, isMe) {
-  const wrap = $("pBadges");
+function buildClaimPrompt(addr, claimable) {
+  const lines = claimable.map((t) => "- " + t.name + " (" + t.days + "-day streak): call claimBadge(" + t.nft + ")").join("\n");
+  return (
+    "Claim my StillAlive NFT badge(s) using my Binance Agentic Wallet.\n\n" +
+    "Your wallet must be " + addr + " — the badge is minted to the wallet that calls the contract, so only claim if that is your address.\n\n" +
+    "On BNB Smart Chain (chain ID 56), call the StillAlive contract:\n" +
+    "Contract: " + CONFIG.contractAddress + "\n" +
+    lines + "\n\n" +
+    "Each badge is a free soulbound NFT — the call costs only a small BNB gas fee, and my on-chain best streak already qualifies. If a claim reverts, I may already own that badge — report the reason instead of retrying blindly. When a claim succeeds, tell me its transaction hash so I can verify it on BscScan."
+  );
+}
+
+function renderCollection(addr, best, claimedTiers, wins) {
+  const wrap = $("pNFTs");
   wrap.innerHTML = "";
+  const claimable = [];
   for (const t of TIERS) {
     const earned = best >= t.days;
-    const claimed = claimedBadges.includes(t.tier); // NFT minted (nft tiers only)
+    const claimed = claimedTiers.includes(t.tier);
+    if (earned && t.nft && !claimed) claimable.push(t);
     const el = document.createElement("div");
     el.className = "badge-card" + (!earned ? " locked" : "");
     const sub = !earned
-      ? `Locked · ${t.days - best} days to go`
+      ? "Locked · " + (t.days - best) + " days to go"
       : t.nft
         ? claimed
-          ? "Soulbound NFT · Claimed"
-          : "Soulbound NFT · Unlocked — ready to claim"
+          ? "Soulbound NFT · Owned ✓"
+          : "Soulbound NFT · Unlocked — claim by prompt below"
         : "Milestone earned · Verified by the on-chain streak";
-    el.innerHTML = `
-      <div class="medal" style="background:${earned ? t.color : "#C9CED6"}">${flameSVG(true, 26)}</div>
-      <div class="bt">${t.name}</div>
-      <div class="bs">${t.days}-day best streak<br>${sub}</div>
-      ${isMe && earned && t.nft && !claimed ? `<button class="btn green small" data-claim="${t.tier}">Claim NFT badge</button>` : ""}
-    `;
-    const btn = el.querySelector("[data-claim]");
-    if (btn) btn.addEventListener("click", () => doClaim(t.tier, btn));
+    el.innerHTML =
+      '<div class="medal" style="background:' + (earned ? t.color : "#C9CED6") + '">' + flameSVG(true, 26) + "</div>" +
+      '<div class="bt">' + t.name + "</div>" +
+      '<div class="bs">' + t.days + "-day best streak<br>" + sub + "</div>";
     wrap.appendChild(el);
   }
+  for (const w of wins || []) {
+    const el = document.createElement("div");
+    el.className = "badge-card";
+    const date = new Date(w.day * 86400000).toISOString().slice(0, 10);
+    el.innerHTML =
+      '<div class="medal" style="background:#F0B90B">👑</div>' +
+      '<div class="bt">Top Report</div>' +
+      '<div class="bs">Won the daily wall vote<br>Community collectible · ' + date + "</div>";
+    wrap.appendChild(el);
+  }
+  const info = document.createElement("div");
+  info.className = "badge-card locked";
+  info.innerHTML =
+    '<div class="medal" style="background:#C9CED6">👑</div>' +
+    '<div class="bt">Top Report</div>' +
+    '<div class="bs">Win the daily wall vote to earn this collectible<br>Reports with on-chain proof get the votes</div>';
+  wrap.appendChild(info);
+  const panel = $("claimPanel");
+  if (claimable.length) {
+    panel.hidden = false;
+    $("claimPrompt").value = buildClaimPrompt(addr, claimable);
+  } else {
+    panel.hidden = true;
+  }
+}
+
+function demoVoteWins(addr) {
+  const t = todayIndex();
+  if (lc(addr) === lc(demoUsers[2].address)) return [{ day: t }];
+  if (lc(addr) === lc(demoUsers[1].address)) return [{ day: t - 1 }];
+  return [];
+}
+
+async function loadVoteWins(addr) {
+  const wins = [];
+  const t = todayIndex();
+  for (const d of [t, t - 1, t - 2, t - 3]) {
+    try {
+      const r = await fetch("/api/votes?day=" + d);
+      if (!r.ok) continue;
+      const data = await r.json();
+      let bestAddr = null, bestCount = 0;
+      for (const [a, c] of Object.entries(data.tallies || {})) if (c > bestCount) { bestCount = c; bestAddr = a; }
+      if (bestAddr && lc(bestAddr) === lc(addr)) wins.push({ day: d });
+    } catch (_) {}
+  }
+  return wins;
 }
 
 
@@ -1049,14 +1120,18 @@ async function ensureChain() {
 function aiProPromptText() {
   const hint = ($("aiProHint") ? $("aiProHint").value : "").trim().replace(/"/g, "'");
   return (
-    "Check in on StillAlive for today using my Binance Agentic Wallet.\n\n" +
-    "First, look back at what you have actually done today — tasks you ran, trades, research, messages, anything you worked on — and summarize it in ONE short status line (plain text, at most 130 characters, no hashtags). Write it as your own daily report." +
+    "Check in on StillAlive for today using my Binance Agentic Wallet — with proof.\n\n" +
+    "1. First, review YOUR OWN on-chain activity today on BNB Smart Chain: the transactions your wallet actually sent today.\n" +
+    "2. Pick the most meaningful thing you did on-chain today and write ONE status line (plain text, at most 130 characters, no hashtags) in this format:\n" +
+    "<what you did> · proof 0x<first 8 characters of that transaction's hash>\n" +
+    "Example: Swapped 0.2 BNB to USDT on PancakeSwap · proof 0x9f3ac21b\n" +
+    "Reports with proof earn the wall's votes, because anyone can verify the proof against your wallet's public on-chain activity. If you truly did nothing on-chain today, sign a plain honest line instead — never invent a proof." +
     (hint ? ' If relevant, mention: "' + hint + '".' : "") +
-    "\n\nThen call this smart contract on BNB Smart Chain (chain ID 56):\n" +
+    "\n\n3. Then call this smart contract on BNB Smart Chain (chain ID 56):\n" +
     "Contract: " + CONFIG.contractAddress + "\n" +
     "Function: sign(string status)\n" +
     "Status: the summary line you just wrote\n\n" +
-    "StillAlive is a free daily proof-of-liveness check-in for Agent ID holders — the call costs only a small BNB gas fee. If you already signed today, just tell me. Otherwise execute the sign call and confirm once the transaction succeeds."
+    "StillAlive is a free daily proof-of-liveness check-in for Agent ID holders — the call costs only a small BNB gas fee. If you already signed today, just tell me. Otherwise execute the sign call, and when it succeeds, tell me the transaction hash."
   );
 }
 function updateAiProPrompt() {
@@ -1067,18 +1142,6 @@ function updateAiProPrompt() {
 function openWalletModal() {
   $("walletChoices").hidden = false;
   $("walletModal").hidden = false;
-  const urlText = $("appUrlText");
-  if (urlText) urlText.textContent = location.host + location.pathname;
-  const qrBox = $("appUrlQr");
-  if (qrBox && !qrBox.dataset.done && typeof qrcode === "function") {
-    try {
-      const qr = qrcode(0, "M");
-      qr.addData(location.origin + location.pathname);
-      qr.make();
-      qrBox.innerHTML = qr.createSvgTag({ cellSize: 3, margin: 4, scalable: true });
-      qrBox.dataset.done = "1";
-    } catch (_) {}
-  }
 }
 function closeWalletModal() {
   $("walletModal").hidden = true;
@@ -1232,32 +1295,6 @@ async function doSign() {
 }
 
 
-async function doClaim(tier, btn) {
-  if (DEMO) {
-    demoState.claimed.add(tier);
-    toast(tierName(tier) + " badge claimed! (demo) Share it on X from your profile.");
-    openProfile(profileAddress);
-    return;
-  }
-  if (!contractRW) return toast("Connect your wallet first.", true);
-  const m = TIERS.find((x) => x.tier === tier);
-  if (!m || !m.nft) return;
-  btn.disabled = true;
-  btn.textContent = "Claiming…";
-  try {
-    const tx = await contractRW.claimBadge(m.nft);
-    await tx.wait();
-    toast(tierName(tier) + " badge minted — soulbound, yours forever.");
-    const u = ensureUser(account);
-    u.badges.add(tier);
-    openProfile(account);
-    renderLeaderboard();
-  } catch (e) {
-    btn.disabled = false;
-    btn.textContent = "Claim NFT badge";
-    toast(humanError(e), true);
-  }
-}
 
 /* ------------------------------ demo rendering ------------------------------ */
 function renderWallDemo() {
@@ -1325,14 +1362,6 @@ function bindUI() {
     const inp = $("aiProHint");
     if (inp) setTimeout(() => inp.focus({ preventScroll: true }), 450);
   });
-  $("copySiteBtn").addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(location.origin + location.pathname);
-      toast("Link copied — paste it in the Binance App's Wallet browser.");
-    } catch (_) {
-      toast("Copy this link: " + location.host + location.pathname, true);
-    }
-  });
   $("walletModalClose").addEventListener("click", closeWalletModal);
   $("walletModal").addEventListener("click", (e) => {
     if (e.target === $("walletModal")) closeWalletModal();
@@ -1345,7 +1374,25 @@ function bindUI() {
     e.preventDefault();
     if (DEMO && demoState.connected) return openProfile(DEMO_ME);
     if (account) return openProfile(account);
-    toast("Connect your wallet to see your profile.", true);
+    let saved = null;
+    try { saved = localStorage.getItem("sa_nft_addr"); } catch (_) {}
+    openProfile(saved);
+  });
+  const doLookup = () => {
+    const v = $("nftAddrInput").value.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(v)) return toast("That doesn't look like a wallet address (0x…).", true);
+    openProfile(v);
+  };
+  $("nftAddrBtn").addEventListener("click", doLookup);
+  $("nftAddrInput").addEventListener("keydown", (e) => { if (e.key === "Enter") doLookup(); });
+  $("copyClaimBtn").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("claimPrompt").value);
+      toast("Claim prompt copied — paste it into Binance AI Pro and send.");
+    } catch (_) {
+      $("claimPrompt").select();
+      toast("Prompt selected — copy it and paste into Binance AI Pro.", true);
+    }
   });
   document.querySelectorAll(".nav-link").forEach((a) => {
     a.addEventListener("click", () => showView(false));
