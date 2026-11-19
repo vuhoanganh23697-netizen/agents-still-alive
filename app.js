@@ -51,6 +51,7 @@ const STILLALIVE_ABI = [
 const AGENTID_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function tokenURI(uint256 tokenId) view returns (string)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
 ];
 
@@ -251,6 +252,35 @@ async function labelFromTokenId(tokenId) {
     if (label) return { name: label + ".ai", image };
   } catch (_) {}
   return null;
+}
+
+/* Reverse lookup: Agent ID name -> owner wallet. The SPACE ID metadata for
+   a label is publicly fetchable and its image URL embeds the tokenId, so a
+   name resolves in two reads: metadata(label) -> tokenId -> ownerOf(). */
+async function addressFromAgentName(raw) {
+  const label = String(raw || "").trim().toLowerCase().replace(/\.ai$/, "");
+  if (!/^[a-z0-9][a-z0-9-_]*$/.test(label)) return null;
+  if (DEMO) {
+    const u = demoUsers.find((x) => x.name.toLowerCase() === label + ".ai");
+    return u ? u.address : null;
+  }
+  for (const [addr, v] of Object.entries(nameCache)) {
+    if (v && v.name && v.name.toLowerCase() === label + ".ai") return addr;
+  }
+  try {
+    const res = await fetch("https://agentid.prd.space.id/metadata/" + encodeURIComponent(label) + ".json");
+    if (!res.ok) return null;
+    const meta = await res.json();
+    const m = String((meta && meta.image) || "").match(/\/(\d{10,})\//);
+    if (!m) return null;
+    const prov = readProvider || new ethers.JsonRpcProvider(CONFIG.rpcUrl);
+    const c = new ethers.Contract(CONFIG.agentIDAddress, AGENTID_ABI, prov);
+    const owner = await c.ownerOf(BigInt(m[1]));
+    if (owner) nameCacheSet(owner, { name: label + ".ai", image: meta.image || null });
+    return owner || null;
+  } catch (_) {
+    return null;
+  }
 }
 
 async function resolveViaBscScan(addr) {
@@ -799,11 +829,11 @@ function showView(profile) {
 }
 
 async function openProfile(addr) {
-  if (!addr || !/^0x[0-9a-fA-F]{40}$/.test(addr)) {
+  if (!addr || (!DEMO && !/^0x[0-9a-fA-F]{40}$/.test(addr))) {
     profileAddress = null;
     showView(true);
     $("pName").textContent = "StillAlive NFT";
-    $("pAddr").textContent = "Paste an agent wallet address above to view its collection.";
+    $("pAddr").textContent = "Type an Agent ID name above (e.g. ghostbnb.ai) to view its collection.";
     $("pSub").textContent = "No wallet connection needed — collections are read straight from the chain.";
     $("pStatCur").textContent = "–";
     $("pStatBest").textContent = "–";
@@ -1378,10 +1408,20 @@ function bindUI() {
     try { saved = localStorage.getItem("sa_nft_addr"); } catch (_) {}
     openProfile(saved);
   });
-  const doLookup = () => {
+  const doLookup = async () => {
     const v = $("nftAddrInput").value.trim();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(v)) return toast("That doesn't look like a wallet address (0x…).", true);
-    openProfile(v);
+    if (/^0x[0-9a-fA-F]{40}$/.test(v)) return openProfile(v);
+    const btn = $("nftAddrBtn");
+    btn.disabled = true;
+    btn.textContent = "Searching…";
+    try {
+      const addr = await addressFromAgentName(v);
+      if (addr) return openProfile(addr);
+      toast("No Agent ID named \"" + v.replace(/\.ai$/i, "") + ".ai\" was found.", true);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "View NFTs";
+    }
   };
   $("nftAddrBtn").addEventListener("click", doLookup);
   $("nftAddrInput").addEventListener("keydown", (e) => { if (e.key === "Enter") doLookup(); });
