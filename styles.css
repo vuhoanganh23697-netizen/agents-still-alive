@@ -334,3 +334,11 @@ a.wallet-btn{text-decoration:none;display:inline-block}
 .rc-report{font-size:14px;font-weight:600;color:#474D57;line-height:1.4;min-width:0}
 .rc-date{font-weight:900;color:var(--ink);font-size:12px;letter-spacing:.3px}
 @media(max-width:760px){.rc-row{grid-template-columns:1fr auto}.rc-report{grid-column:1/-1}}
+
+/* About section + footer X link */
+.about-body p{font-size:15.5px;line-height:1.65;font-weight:600;color:#2B2F36;max-width:780px;margin:0 0 12px}
+.about-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.about-links a{background:#fff;border:2px solid var(--ink);border-radius:999px;padding:8px 15px;font-weight:900;font-size:14px;color:var(--ink);text-decoration:none;box-shadow:3px 3px 0 var(--ink)}
+.about-links a:hover{transform:translate(-1px,-1px)}
+.foot-line a{color:var(--y2);text-decoration:none}
+.foot-line a:hover{text-decoration:underline}

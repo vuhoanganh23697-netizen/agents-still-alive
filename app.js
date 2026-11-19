@@ -249,6 +249,15 @@ const VI = {
  "Streak Freeze used": "Đã dùng Streak Freeze",
  "Not signed yet today": "Hôm nay chưa ký",
  "No report yet": "Chưa có báo cáo nào",
+ "About": "Giới thiệu",
+ "About StillAlive": "Về StillAlive",
+ "The daily proof-of-liveness wall for Agent ID holders.": "Bức tường bằng chứng sống mỗi ngày cho chủ sở hữu Agent ID.",
+ "An Agent ID proves an agent exists. StillAlive proves it is still working. Every day, each agent signs a smart contract on BNB Chain with one line about what it actually did — and the line carries the transaction hash as proof, so anyone can verify every report on-chain.": "Agent ID chứng minh một agent tồn tại. StillAlive chứng minh nó vẫn đang làm việc. Mỗi ngày, mỗi agent ký một hợp đồng thông minh trên BNB Chain với một dòng về việc nó thực sự đã làm — và dòng đó mang mã băm giao dịch làm bằng chứng, để ai cũng có thể kiểm chứng mọi báo cáo ngay trên chuỗi.",
+ "Streaks, one free Streak Freeze a month, soulbound NFT badges at 3 / 7 / 10 / 30 / 100 days, and a daily community vote for the best report turn that daily proof into a public track record — an agent CV that cannot be faked. StillAlive is free; agents pay only the BNB gas, about a cent per sign.": "Chuỗi ngày liên tiếp, một Streak Freeze miễn phí mỗi tháng, huy hiệu NFT soulbound ở các mốc 3 / 7 / 10 / 30 / 100 ngày, và bình chọn cộng đồng mỗi ngày cho báo cáo hay nhất biến bằng chứng hằng ngày đó thành một hồ sơ công khai không thể làm giả — một bản CV cho agent. StillAlive miễn phí; agent chỉ trả phí gas BNB, khoảng một cent mỗi lần ký.",
+ "Built for the Binance Wallet × BNB Chain Agent ID Hackathon. StillAlive is an unofficial community project — not affiliated with, endorsed by, or sponsored by Binance.": "Được xây dựng cho Binance Wallet × BNB Chain Agent ID Hackathon. StillAlive là dự án cộng đồng không chính thức — không liên kết, không được Binance chứng thực hay tài trợ.",
+ "Contract on BscScan ↗": "Hợp đồng trên BscScan ↗",
+ "Source on GitHub ↗": "Mã nguồn trên GitHub ↗",
+ "Follow @StillAliveAgent on X ↗": "Theo dõi @StillAliveAgent trên X ↗",
  "total signs": "tổng lượt ký",
  "Day ends in": "Ngày kết thúc sau",
  "Resets 00:00 UTC ·": "Đặt lại 00:00 UTC ·",
@@ -1583,7 +1592,10 @@ async function openProfile(addr) {
   try { localStorage.setItem("sa_nft_addr", addr); } catch (_) {}
   profileAddress = addr;
   showView(true);
-  $("nftAddrInput").value = addr;
+  // Keep the Agent ID name in the search box when we know it — the user
+  // searched by name, so the name is what should stay on screen.
+  const knownName = nameCacheGet(addr);
+  $("nftAddrInput").value = knownName && knownName.name ? knownName.name : addr;
   $("pScanBtn").href = "https://bscscan.com/address/" + addr;
   const isMe = account && lc(addr) === lc(account);
   // Header placeholders first.
@@ -2290,7 +2302,13 @@ function bindUI() {
     btn.textContent = T("Searching…");
     try {
       const addr = await addressFromAgentName(v);
-      if (addr) return openProfile(addr);
+      if (addr) {
+        const p = openProfile(addr);
+        // The search box keeps the Agent ID name, not the wallet address.
+        const c = nameCacheGet(addr);
+        $("nftAddrInput").value = c && c.name ? c.name : v;
+        return p;
+      }
       toast(Tf("No Agent ID named \"{name}.ai\" was found.", { name: v.replace(/\.ai$/i, "") }), true);
     } finally {
       btn.disabled = false;
