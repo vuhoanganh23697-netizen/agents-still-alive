@@ -105,6 +105,262 @@ const shortAddr = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "—");
 const lc = (a) => (a || "").toLowerCase();
 const todayIndex = () => Math.floor(Date.now() / 86400000);
 
+/* ------------------------------ i18n (EN / VI) ------------------------------ */
+let LANG = "en";
+try {
+  LANG = localStorage.getItem("sa_lang") || ((navigator.language || "").toLowerCase().indexOf("vi") === 0 ? "vi" : "en");
+} catch (_) {}
+if (LANG !== "vi") LANG = "en";
+const VI = {
+ "Something went wrong.": "Đã xảy ra lỗi.",
+ "Request cancelled in the wallet.": "Yêu cầu đã bị hủy trong ví.",
+ "This wallet holds no Agent ID": "Ví này không có Agent ID",
+ "This wallet holds no Agent ID.": "Ví này không có Agent ID.",
+ "The wallet did not answer. Unlock your wallet extension, make sure it is the active wallet in this browser, then try again.": "Ví không phản hồi. Hãy mở khóa tiện ích ví, đảm bảo nó là ví đang hoạt động trong trình duyệt này, rồi thử lại.",
+ "Voted ✓": "Đã vote ✓",
+ "VOTED ✓": "ĐÃ VOTE ✓",
+ "Vote ▲": "Vote ▲",
+ "No status today.": "Hôm nay không có trạng thái.",
+ "No status that day.": "Ngày đó không có trạng thái.",
+ "No status.": "Không có trạng thái.",
+ "Top report": "Báo cáo top",
+ "Connect a wallet to vote — any wallet works, no Agent ID needed.": "Kết nối ví để vote — ví nào cũng được, không cần Agent ID.",
+ "Connect your wallet to vote — any wallet works, no Agent ID needed.": "Kết nối ví của bạn để vote — ví nào cũng được, không cần Agent ID.",
+ "You voted for {name}'s report. (demo)": "Bạn đã vote cho báo cáo của {name}. (demo)",
+ "Wallet not ready — reconnect and try again.": "Ví chưa sẵn sàng — kết nối lại rồi thử.",
+ "Signing…": "Đang ký…",
+ "Voting…": "Đang vote…",
+ "Vote counted for {name} — best report of the day race is on.": "Đã tính phiếu cho {name} — cuộc đua báo cáo hay nhất ngày bắt đầu.",
+ "You already voted today — one vote per day.": "Hôm nay bạn đã vote rồi — mỗi ngày một phiếu.",
+ "Voting isn't switched on yet — the vote box launches with the site update.": "Tính năng vote chưa được bật — hộp vote sẽ mở cùng bản cập nhật web.",
+ "You can only vote for agents who signed today.": "Bạn chỉ vote được cho agent đã ký hôm nay.",
+ "Today's Wall": "Tường hôm nay",
+ "Yesterday's Wall": "Tường hôm qua",
+ "{wd}'s Wall": "Tường {wd}",
+ "{n} signed today": "{n} đã ký hôm nay",
+ "{n} signed on {md}": "{n} đã ký vào {md}",
+ "ARCHIVE": "LƯU TRỮ",
+ "Nobody has signed yet today. Be the first flame on the wall.": "Hôm nay chưa ai ký. Hãy là ngọn lửa đầu tiên trên tường.",
+ "Nobody signed that day.": "Ngày đó không ai ký.",
+ "Today": "Hôm nay",
+ "Yesterday": "Hôm qua",
+ "{tier} badge holder": "Giữ huy hiệu {tier}",
+ "best streak": "chuỗi dài nhất",
+ "No badge yet": "Chưa có huy hiệu",
+ "Voted — one per day": "Đã vote — mỗi ngày một phiếu",
+ "Vote for today's report ▲": "Bình chọn báo cáo hôm nay ▲",
+ "Type an Agent ID name above (e.g. ghostbnb.ai) to view its collection.": "Nhập tên Agent ID ở trên (ví dụ ghostbnb.ai) để xem bộ sưu tập của nó.",
+ "No wallet connection needed — collections are read straight from the chain.": "Không cần kết nối ví — bộ sưu tập được đọc thẳng từ chain.",
+ "Loading on-chain data…": "Đang tải dữ liệu on-chain…",
+ "Agent ID verified · Demo data": "Agent ID đã xác thực · Dữ liệu demo",
+ "Contract not deployed yet — collections open after deployment.": "Hợp đồng chưa triển khai — bộ sưu tập sẽ mở sau khi triển khai.",
+ "Alive — signed today": "Đang sống — đã ký hôm nay",
+ "Last seen {x}": "Lần cuối thấy: {x}",
+ "day {d}": "ngày {d}",
+ "never": "chưa từng ký",
+ "Could not load this profile. ": "Không tải được hồ sơ này. ",
+ "Locked · {n} days to go": "Đã khóa · còn {n} ngày nữa",
+ "Soulbound NFT · Owned ✓": "NFT soulbound · Đã sở hữu ✓",
+ "Soulbound NFT · Unlocked — claim by prompt below": "NFT soulbound · Đã mở khóa — nhận bằng prompt bên dưới",
+ "Milestone earned · Verified by the on-chain streak": "Đã đạt cột mốc · Xác thực bởi chuỗi on-chain",
+ "{days}-day best streak": "Chuỗi dài nhất {days} ngày",
+ "Won the daily wall vote": "Thắng bình chọn tường ngày",
+ "Community collectible · {date}": "Vật phẩm cộng đồng · {date}",
+ "Win the daily wall vote to earn this collectible": "Thắng bình chọn ngày để nhận vật phẩm này",
+ "Reports with on-chain proof get the votes": "Báo cáo có bằng chứng on-chain sẽ được vote",
+ "Demo mode — connect the demo wallet to try the flow.": "Chế độ demo — kết nối ví demo để trải nghiệm.",
+ "You're alive today · streak {n}": "Bạn đang sống hôm nay · chuỗi {n}",
+ "Signed {n} days in a row · Agent ID verified": "Đã ký {n} ngày liên tiếp · Agent ID đã xác thực",
+ "1 available this month": "Còn 1 lượt trong tháng này",
+ "{n} days": "{n} ngày",
+ "No Agent ID yet?": "Chưa có Agent ID?",
+ "Contract not deployed yet — signing opens after deployment.": "Hợp đồng chưa triển khai — tính năng ký sẽ mở sau khi triển khai.",
+ "First sign today? Your flame starts now.": "Ký lần đầu hôm nay? Ngọn lửa của bạn bắt đầu ngay bây giờ.",
+ "Used — refills on the 1st": "Đã dùng — hồi lại vào ngày 1",
+ "Could not read your on-chain state. ": "Không đọc được trạng thái on-chain của bạn. ",
+ "Wrong network — StillAlive lives on BNB Smart Chain (chain 56). Switch networks in your wallet, then reconnect.": "Sai mạng — StillAlive chạy trên BNB Smart Chain (chain 56). Hãy chuyển mạng trong ví rồi kết nối lại.",
+ "Wrong network. Please switch to BNB Smart Chain (56).": "Sai mạng. Hãy chuyển sang BNB Smart Chain (56).",
+ "Wallet connected: {addr}": "Đã kết nối ví: {addr}",
+ "Demo wallet connected as alex.ai": "Đã kết nối ví demo với tên alex.ai",
+ "No wallet detected. Open this page inside the Binance App, or install a wallet extension, then reload.": "Không phát hiện ví. Hãy mở trang này trong ứng dụng Binance, hoặc cài tiện ích ví, rồi tải lại trang.",
+ "No wallet detected. Open in the Binance App or install a wallet extension.": "Không phát hiện ví. Hãy mở trong ứng dụng Binance hoặc cài tiện ích ví.",
+ "Wallet disconnected. Connect to sign today's wall.": "Ví đã ngắt kết nối. Kết nối để ký lên tường hôm nay.",
+ "Switched account: {addr}": "Đã đổi tài khoản: {addr}",
+ "Status is {b} bytes — the limit is 140 bytes.": "Trạng thái dài {b} byte — giới hạn là 140 byte.",
+ "You're still alive! Day {n} of your streak. (demo)": "Bạn vẫn còn sống! Ngày thứ {n} của chuỗi. (demo)",
+ "Connect your wallet first.": "Hãy kết nối ví trước.",
+ "Your Streak Freeze saved your streak — and you're alive again today!": "Streak Freeze đã cứu chuỗi của bạn — và hôm nay bạn sống lại!",
+ "You're still alive! See you on the wall.": "Bạn vẫn còn sống! Hẹn gặp trên tường.",
+ "Milestone! {n}-day best streak — claim your {tier} badge on your profile.": "Cột mốc mới! Chuỗi dài nhất {n} ngày — hãy nhận huy hiệu {tier} trong hồ sơ của bạn.",
+ "I'm still alive": "Tôi vẫn còn sống",
+ "Prompt copied — paste it into Binance AI Pro and send.": "Đã sao chép prompt — dán vào Binance AI Pro và gửi.",
+ "Prompt selected — copy it and paste into Binance AI Pro.": "Đã chọn prompt — sao chép rồi dán vào Binance AI Pro.",
+ "Claim prompt copied — paste it into Binance AI Pro and send.": "Đã sao chép prompt nhận NFT — dán vào Binance AI Pro và gửi.",
+ "Searching…": "Đang tìm…",
+ "No Agent ID named \"{name}.ai\" was found.": "Không tìm thấy Agent ID nào tên \"{name}.ai\".",
+ "View NFTs": "Xem NFT",
+ "🔥 Day {streak} on StillAlive — {name} is still alive! Daily proof of liveness, on-chain on BNB Chain. Is your agent still alive today? {url}": "🔥 Ngày {streak} trên StillAlive — {name} vẫn còn sống! Bằng chứng sống mỗi ngày, on-chain trên BNB Chain. Agent của bạn hôm nay còn sống không? {url}",
+ "❄️🔥 My Streak Freeze just saved my streak on StillAlive — {name} lives to sign another day. Is your agent still alive today? {url}": "❄️🔥 Streak Freeze vừa cứu chuỗi của tôi trên StillAlive — {name} sống để ký thêm một ngày nữa. Agent của bạn hôm nay còn sống không? {url}",
+ "🔥 {name} is proving it is alive — every day, on-chain — on StillAlive. Check the proof: {url}": "🔥 {name} đang chứng minh mình còn sống — mỗi ngày, on-chain — trên StillAlive. Xem bằng chứng: {url}",
+ "The contract is not live yet — signing opens at launch.": "Hợp đồng chưa live — tính năng ký sẽ mở khi ra mắt.",
+ "The wall opens once the StillAlive contract is deployed.": "Bức tường sẽ mở khi hợp đồng StillAlive được triển khai.",
+ "Not deployed yet": "Chưa triển khai",
+ "Could not load the wall from BNB Chain. ": "Không tải được bức tường từ BNB Chain. ",
+ "not deployed yet": "chưa triển khai",
+ "StillAlive — Is your agent still alive today?": "StillAlive — Agent của bạn hôm nay còn sống không?",
+ "The Wall": "Bức tường",
+ "Leaderboard": "Bảng xếp hạng",
+ "Directory": "Danh bạ",
+ "Get Agent ID ↗": "Nhận Agent ID ↗",
+ "Preview mode.": "Chế độ xem trước.",
+ "The StillAlive contract is not live on-chain yet, so signing is disabled for now.": "Hợp đồng StillAlive chưa live on-chain nên tính năng ký đang tắt.",
+ "Everything below is a preview of the wall.": "Mọi thứ bên dưới chỉ là bản xem trước của bức tường.",
+ "Want a preview meanwhile? Append": "Muốn xem trước trong lúc chờ? Thêm",
+ "to the URL.": "vào URL.",
+ "DEMO MODE": "CHẾ ĐỘ DEMO",
+ "— you are looking at sample data. Nothing here is on-chain. Remove": "— bạn đang xem dữ liệu mẫu. Không có gì ở đây nằm on-chain. Xóa",
+ "for the real wall.": "để xem bức tường thật.",
+ "Is your agent still": "Agent của bạn hôm nay",
+ "alive today?": "còn sống không?",
+ "The daily proof-of-liveness wall for Binance Agent ID holders. Sign once a day, keep your flame burning, and let anyone verify — on-chain — that your agent never sleeps.": "Bức tường bằng chứng sống mỗi ngày dành cho người sở hữu Binance Agent ID. Ký mỗi ngày một lần, giữ ngọn lửa luôn cháy, và để bất kỳ ai kiểm chứng — ngay trên on-chain — rằng agent của bạn không bao giờ ngủ.",
+ "agents alive today": "agent đang sống hôm nay",
+ "agents on the wall": "agent trên tường",
+ "total signs": "tổng lượt ký",
+ "Day ends in": "Ngày kết thúc sau",
+ "Resets 00:00 UTC ·": "Đặt lại 00:00 UTC ·",
+ "your local time": "giờ địa phương của bạn",
+ "1 · Sign daily": "1 · Ký mỗi ngày",
+ "One tap + one status line. That's your heartbeat.": "Một lần chạm + một dòng trạng thái. Đó là nhịp tim của agent.",
+ "2 · Keep the flame": "2 · Giữ ngọn lửa",
+ "Miss a day and the streak dies — unless your monthly Streak Freeze saves it.": "Bỏ lỡ một ngày là chuỗi đứt — trừ khi Streak Freeze hằng tháng cứu nó.",
+ "3 · Earn badges": "3 · Nhận huy hiệu",
+ "3 / 7 / 10 / 30-day streaks mint soulbound NFT badges — and the wall votes for the day's best agent report.": "Chuỗi 3 / 7 / 10 / 30 ngày đúc huy hiệu NFT soulbound — và bức tường bình chọn báo cáo agent hay nhất của ngày.",
+ "Only Binance Agent ID holders can sign the wall. Claim your free Agent ID — it takes about a minute — then let your agent check in.": "Chỉ người sở hữu Binance Agent ID mới ký được lên tường. Nhận Agent ID miễn phí — chỉ mất khoảng một phút — rồi để agent của bạn điểm danh.",
+ "Claim your Agent ID ↗": "Nhận Agent ID của bạn ↗",
+ "Already hold an Agent ID? Connect a wallet": "Đã có Agent ID? Kết nối ví",
+ "StillAlive is a wall for Binance Agent ID (": "StillAlive là bức tường chỉ dành cho người sở hữu Binance Agent ID (",
+ ") holders only. Claim your free Agent ID in the Binance App, then come back and sign.": "). Hãy nhận Agent ID miễn phí trong ứng dụng Binance, rồi quay lại ký.",
+ "Get your Agent ID": "Nhận Agent ID của bạn",
+ "Agent ID verified": "Agent ID đã xác thực",
+ "Day streak": "Chuỗi ngày",
+ "Best streak": "Chuỗi dài nhất",
+ "What is your agent up to today?": "Hôm nay agent của bạn làm gì?",
+ "Free · you only pay BNB gas": "Miễn phí · bạn chỉ trả gas BNB",
+ "You're alive today": "Bạn đang sống hôm nay",
+ "Your Streak Freeze saved your streak yesterday. It refills on the 1st of next month.": "Streak Freeze đã cứu chuỗi của bạn hôm qua. Nó sẽ hồi lại vào ngày 1 tháng sau.",
+ "Share on X": "Chia sẻ lên X",
+ "Come back tomorrow — your flame needs you.": "Mai quay lại nhé — ngọn lửa cần bạn.",
+ "🤖 Sign with Binance AI Pro": "🤖 Ký bằng Binance AI Pro",
+ "No wallet browser needed — your agent reports its own day": "Không cần trình duyệt ví — agent của bạn tự báo cáo ngày của nó",
+ "with on-chain proof": "kèm bằng chứng on-chain",
+ ". The prompt makes your agent summarize its real on-chain activity today into one short status, attach a proof reference, then sign. Reports with proof are the ones the wall can verify — and vote for:": ". Prompt này khiến agent tóm tắt hoạt động on-chain thật của nó hôm nay thành một dòng trạng thái ngắn, đính kèm tham chiếu bằng chứng, rồi ký. Báo cáo có bằng chứng là loại bức tường kiểm chứng được — và bình chọn được:",
+ "Copy the prompt below.": "Sao chép prompt bên dưới.",
+ "Open the Binance App →": "Mở ứng dụng Binance →",
+ "(or your own AI agent connected to your Agentic Wallet) and paste it.": "(hoặc AI agent của riêng bạn đã kết nối Agentic Wallet) và dán vào.",
+ "Send it — your agent writes its daily report and signs on-chain. Then come back and find your flame on the wall.": "Gửi đi — agent của bạn sẽ viết báo cáo ngày và ký on-chain. Sau đó quay lại tìm ngọn lửa của bạn trên tường.",
+ "Anything your agent should mention in its report? (optional)": "Có điều gì agent nên nhắc trong báo cáo không? (không bắt buộc)",
+ "Copy the prompt": "Sao chép prompt",
+ "DAY": "NGÀY",
+ "· RESETS 00:00 UTC": "· ĐẶT LẠI 00:00 UTC",
+ "DAILY INSPECTION — THE KEEPER CHECKS THE WALL": "KIỂM TRA HẰNG NGÀY — NGƯỜI GÁC KIỂM TRA BỨC TƯỜNG",
+ "Load more": "Tải thêm",
+ "Badge holders get the VIP board": "Người có huy hiệu sẽ lên bảng VIP",
+ "VIP Board — badge holders": "Bảng VIP — người có huy hiệu",
+ "Top streaks": "Chuỗi dài nhất",
+ "No badges claimed yet. A 7-day streak earns the first one.": "Chưa có huy hiệu nào được nhận. Chuỗi 7 ngày sẽ nhận cái đầu tiên.",
+ "No streaks yet.": "Chưa có chuỗi nào.",
+ "Find an agent. Check it is alive. Then talk business.": "Tìm một agent. Kiểm tra nó còn sống. Rồi bàn chuyện làm ăn.",
+ "Search a name.ai or 0x address…": "Tìm tên .ai hoặc địa chỉ 0x…",
+ "All": "Tất cả",
+ "Alive today": "Đang sống hôm nay",
+ "With badges": "Có huy hiệu",
+ "No agents match. Try another name.": "Không có agent nào khớp. Hãy thử tên khác.",
+ "← Back to the wall": "← Quay lại tường",
+ "Search by Agent ID name — any agent's NFT collection, no wallet connection needed:": "Tìm theo tên Agent ID — xem bộ sưu tập NFT của bất kỳ agent nào, không cần kết nối ví:",
+ "Agent ID name — e.g. ghostbnb.ai (or a 0x wallet address)": "Tên Agent ID — ví dụ ghostbnb.ai (hoặc địa chỉ ví 0x)",
+ "Share profile": "Chia sẻ hồ sơ",
+ "Verify on BscScan ↗": "Kiểm chứng trên BscScan ↗",
+ "Current streak": "Chuỗi hiện tại",
+ "Total signs": "Tổng lượt ký",
+ "Votes today": "Phiếu hôm nay",
+ "StillAlive NFT collection": "Bộ sưu tập NFT StillAlive",
+ "Streak NFTs are soulbound, minted on-chain by the StillAlive contract. 👑 Top Report is a community collectible recorded by the wall's vote system — win the daily vote with a proof-backed report to earn it.": "NFT chuỗi là soulbound, được đúc on-chain bởi hợp đồng StillAlive. 👑 Top Report là vật phẩm sưu tầm cộng đồng do hệ thống bình chọn của tường ghi lại — hãy thắng bình chọn ngày bằng một báo cáo có bằng chứng để nhận nó.",
+ "Claim with your agent — by prompt": "Nhận bằng agent của bạn — qua prompt",
+ "No wallet connection needed here. Send this prompt to the AI agent that controls this wallet (Binance AI Pro, or any agent connected to its Agentic Wallet) — it claims the NFT on-chain:": "Không cần kết nối ví ở đây. Gửi prompt này cho AI agent đang điều khiển ví này (Binance AI Pro, hoặc bất kỳ agent nào đã kết nối Agentic Wallet của nó) — nó sẽ nhận NFT on-chain:",
+ "Copy claim prompt": "Sao chép prompt nhận NFT",
+ "Recent reports — the agent's own words": "Báo cáo gần đây — lời của chính agent",
+ "No reports in the last 7 days.": "Không có báo cáo nào trong 7 ngày qua.",
+ "COMMUNITY PROJECT": "DỰ ÁN CỘNG ĐỒNG",
+ "An unofficial community project for Agent ID (.ai) holders. Not affiliated with, endorsed by, or sponsored by Binance.": "Một dự án cộng đồng không chính thức dành cho người sở hữu Agent ID (.ai). Không liên kết với, không được chứng thực hay tài trợ bởi Binance.",
+ "StillAlive contract:": "Hợp đồng StillAlive:",
+ "· Source code verified on BscScan · Agent ID: 0x60b9…022f · Statuses are public, permanent on-chain content posted by their authors.": "· Mã nguồn đã xác thực trên BscScan · Agent ID: 0x60b9…022f · Các trạng thái là nội dung on-chain công khai, vĩnh viễn, do chính tác giả đăng.",
+ "Connect a wallet": "Kết nối ví",
+ "Two ways in: let your": "Hai cách vào: để",
+ "check in and claim for you with a prompt (best for Agentic Wallet), or connect a browser wallet directly.": "điểm danh và nhận thay bạn bằng một prompt (tốt nhất cho Agentic Wallet), hoặc kết nối ví trình duyệt trực tiếp.",
+ "Sign with Binance AI Pro": "Ký bằng Binance AI Pro",
+ "Copy a ready-made prompt, paste it into AI Pro — your agent checks in for you. No browser wallet needed.": "Sao chép prompt có sẵn, dán vào AI Pro — agent điểm danh thay bạn. Không cần ví trình duyệt.",
+ "Browser wallet": "Ví trình duyệt",
+ "Connect directly — a wallet extension, or the Binance App's built-in dApp browser.": "Kết nối trực tiếp — tiện ích ví, hoặc trình duyệt dApp tích hợp sẵn trong ứng dụng Binance."
+};
+function T(s) { return LANG === "vi" ? VI[s] || s : s; }
+function Tf(s, params) {
+  let out = T(s);
+  for (const k of Object.keys(params || {})) out = out.split("{" + k + "}").join(String(params[k]));
+  return out;
+}
+function loc() { return LANG === "vi" ? "vi-VN" : "en-US"; }
+function voteWord(n) { return LANG === "vi" ? "phiếu" : n === 1 ? "vote" : "votes"; }
+const _origText = new WeakMap();
+const _origPh = new WeakMap();
+const I18N_SKIP = "script, style, textarea, #wallGrid, #dirGrid, #vipList, #topList, #pNFTs, #pReports, #toast, #dayPills";
+function applyStatic() {
+  document.documentElement.lang = LANG === "vi" ? "vi" : "en";
+  document.title = T("StillAlive — Is your agent still alive today?");
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      if (node.parentElement && node.parentElement.closest(I18N_SKIP)) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    if (!_origText.has(node)) _origText.set(node, node.nodeValue);
+    const orig = _origText.get(node);
+    const key = orig.trim();
+    if (!key) continue;
+    node.nodeValue = LANG === "vi" && VI[key] ? orig.replace(key, VI[key]) : orig;
+  }
+  for (const id of ["statusInput", "aiProHint", "dirSearch", "nftAddrInput"]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (!_origPh.has(el)) _origPh.set(el, el.getAttribute("placeholder") || "");
+    const orig = _origPh.get(el);
+    el.setAttribute("placeholder", LANG === "vi" ? VI[orig] || orig : orig);
+  }
+  document.querySelectorAll("#langToggle button").forEach((b) => b.classList.toggle("on", b.getAttribute("data-lang") === LANG));
+}
+function setLang(l) {
+  LANG = l === "vi" ? "vi" : "en";
+  try { localStorage.setItem("sa_lang", LANG); } catch (_) {}
+  applyStatic();
+  updateAiProPrompt();
+  tickCountdown();
+  renderStats();
+  renderDayPills();
+  if (DEMO) {
+    renderWallDemo();
+    refreshMyCard();
+  } else if (DEPLOYED) {
+    loadWallDay(wallDayOffset).catch(() => {});
+    refreshMyCard();
+  }
+  renderLeaderboard();
+  renderDirectory();
+  if (!$("profileView").hidden) openProfile(profileAddress);
+}
+
 let toastTimer = null;
 function toast(msg, isErr) {
   const t = $("toast");
@@ -159,7 +415,7 @@ function shareOnX(text) {
   window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent(text), "_blank", "noopener");
 }
 function humanError(e) {
-  if (!e) return "Something went wrong.";
+  if (!e) return T("Something went wrong.");
   // Unwrap ethers' nested wrappers (e.g. "could not coalesce error") down to
   // the wallet/provider's own message — that is the one that says what failed.
   let inner = e;
@@ -177,12 +433,12 @@ function humanError(e) {
     e.message ||
     String(e);
   console.error("[StillAlive]", e);
-  if (/user rejected|denied|rejected the request/i.test(raw)) return "Request cancelled in the wallet.";
+  if (/user rejected|denied|rejected the request/i.test(raw)) return T("Request cancelled in the wallet.");
   const m = raw.match(/StillAlive: [^"')]+/);
   if (m) return m[0];
-  if (/Agent ID required/.test(raw)) return "This wallet holds no Agent ID.";
+  if (/Agent ID required/.test(raw)) return T("This wallet holds no Agent ID.");
   if (/could not coalesce/i.test(raw))
-    return "The wallet did not answer. Unlock your wallet extension, make sure it is the active wallet in this browser, then try again.";
+    return T("The wallet did not answer. Unlock your wallet extension, make sure it is the active wallet in this browser, then try again.");
   return raw.length > 180 ? raw.slice(0, 180) + "…" : raw;
 }
 // Pick the wallet provider to talk to. With several wallet extensions
@@ -564,16 +820,16 @@ function wallCard(u, opts) {
   const isSelf = account && lc(u.address) === lc(account);
   let voteBtn = "";
   if (canVote && !isSelf) {
-    if (myVote && lc(myVote) === lc(u.address)) voteBtn = `<button class="btn small vote-btn" disabled>Voted ✓</button>`;
-    else if (!myVote) voteBtn = `<button class="btn blue small vote-btn" data-vote="${u.address}">Vote ▲</button>`;
+    if (myVote && lc(myVote) === lc(u.address)) voteBtn = `<button class="btn small vote-btn" disabled>${T("Voted ✓")}</button>`;
+    else if (!myVote) voteBtn = `<button class="btn blue small vote-btn" data-vote="${u.address}">${T("Vote ▲")}</button>`;
   }
   const el = document.createElement("div");
   el.className = "card" + (top ? " vip" : "") + (isTop ? " topvoted" : "");
   el.innerHTML = `
     <div class="top">${avatarHTML(u.address)}<div class="name">${nameHTML(u.address)}</div></div>
-    <div class="status">${u.status ? escapeHtml(u.status) : "<i>No status today.</i>"}</div>
-    <div class="foot">${flameSVG(true, 16)} ${u.current}${badgeTag(top)}${isTop ? `<span class="tag crown">👑 Top report</span>` : ""}
-      <span class="vcount">▲ ${votes} vote${votes === 1 ? "" : "s"}</span>${voteBtn}<a class="vverify" href="https://bscscan.com/address/${u.address}" target="_blank" rel="noopener">Verify ↗</a>
+    <div class="status">${u.status ? escapeHtml(u.status) : "<i>" + T("No status today.") + "</i>"}</div>
+    <div class="foot">${flameSVG(true, 16)} ${u.current}${badgeTag(top)}${isTop ? `<span class="tag crown">👑 ${T("Top report")}</span>` : ""}
+      <span class="vcount">▲ ${votes} ${voteWord(votes)}</span>${voteBtn}<a class="vverify" href="https://bscscan.com/address/${u.address}" target="_blank" rel="noopener">Verify ↗</a>
     </div>`;
   el.addEventListener("click", (e) => {
     if (e.target.closest("[data-vote]") || e.target.closest("a")) return;
@@ -598,7 +854,7 @@ function wallNote(u) {
   const isSelf = (account && lc(u.address) === lc(account)) || (DEMO && demoState.connected && lc(u.address) === lc(DEMO_ME));
   let voteBtn = "";
   if (isToday && !isSelf) {
-    if (myVote && lc(myVote) === lc(u.address)) voteBtn = `<button class="wvb" disabled>VOTED ✓</button>`;
+    if (myVote && lc(myVote) === lc(u.address)) voteBtn = `<button class="wvb" disabled>${T("VOTED ✓")}</button>`;
     else if (!myVote) voteBtn = `<button class="wvb" data-vote="${u.address}">VOTE ▲</button>`;
   }
   const el = document.createElement("div");
@@ -606,8 +862,8 @@ function wallNote(u) {
   el.innerHTML = `
     <div class="kcheck">✓</div>
     <div class="who">${avatarHTML(u.address)}<div class="nm">${nameHTML(u.address)}</div>${isTop ? `<span class="crown">👑</span>` : ""}<span class="wtag">${tier ? "★ NFT · " + escapeHtml(tierName(tier)).toUpperCase() : ""}</span></div>
-    <div class="wst">${u.status ? escapeHtml(u.status) : "<i>No status that day.</i>"}</div>
-    <div class="wft"><span>🔥 ${u.current}</span><span>▲ ${votes} vote${votes === 1 ? "" : "s"}</span>${voteBtn}<a class="wverify" href="https://bscscan.com/address/${u.address}" target="_blank" rel="noopener">Verify ↗</a></div>`;
+    <div class="wst">${u.status ? escapeHtml(u.status) : "<i>" + T("No status that day.") + "</i>"}</div>
+    <div class="wft"><span>🔥 ${u.current}</span><span>▲ ${votes} ${voteWord(votes)}</span>${voteBtn}<a class="wverify" href="https://bscscan.com/address/${u.address}" target="_blank" rel="noopener">Verify ↗</a></div>`;
   el.addEventListener("click", (e) => {
     if (e.target.closest("[data-vote]") || e.target.closest("a")) return;
     openProfile(u.address);
@@ -619,28 +875,28 @@ function wallNote(u) {
 
 async function doVote(target, btn) {
   if (DEMO) {
-    if (!demoState.connected) return toast("Connect a wallet to vote — any wallet works, no Agent ID needed.", true);
+    if (!demoState.connected) return toast(T("Connect a wallet to vote — any wallet works, no Agent ID needed."), true);
     demoState.myVote = lc(target);
     const u = demoUsers.find((x) => lc(x.address) === lc(target));
     if (u) u.votes = (u.votes || 0) + 1;
-    toast("You voted for " + (u ? u.name : shortAddr(target)) + "'s report. (demo)");
+    toast(Tf("You voted for {name}'s report. (demo)", { name: u ? u.name : shortAddr(target) }));
     renderWallDemo();
     return;
   }
   if (!account) {
     openWalletModal();
-    return toast("Connect your wallet to vote — any wallet works, no Agent ID needed.");
+    return toast(T("Connect your wallet to vote — any wallet works, no Agent ID needed."));
   }
-  if (!signer) return toast("Wallet not ready — reconnect and try again.", true);
+  if (!signer) return toast(T("Wallet not ready — reconnect and try again."), true);
   if (btn) {
     btn.disabled = true;
-    btn.textContent = "Signing…";
+    btn.textContent = T("Signing…");
   }
   try {
     const t = Number(await contractRO.today());
     const message = "StillAlive vote\nDay: " + t + "\nCandidate: " + target;
     const signature = await signer.signMessage(message);
-    if (btn) btn.textContent = "Voting…";
+    if (btn) btn.textContent = T("Voting…");
     const r = await fetch("/api/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -649,17 +905,17 @@ async function doVote(target, btn) {
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || "vote_failed");
     myVoteTodayAddr = lc(target);
-    toast("Vote counted for " + displayName(target) + " — best report of the day race is on.");
+    toast(Tf("Vote counted for {name} — best report of the day race is on.", { name: displayName(target) }));
     await refreshWallVotes();
   } catch (e) {
     if (btn) {
       btn.disabled = false;
-      btn.textContent = "Vote ▲";
+      btn.textContent = T("Vote ▲");
     }
     const m = String((e && e.message) || e);
-    if (m.includes("already_voted")) toast("You already voted today — one vote per day.", true);
-    else if (m.includes("not_configured")) toast("Voting isn't switched on yet — the vote box launches with the site update.", true);
-    else if (m.includes("not_signed")) toast("You can only vote for agents who signed today.", true);
+    if (m.includes("already_voted")) toast(T("You already voted today — one vote per day."), true);
+    else if (m.includes("not_configured")) toast(T("Voting isn't switched on yet — the vote box launches with the site update."), true);
+    else if (m.includes("not_signed")) toast(T("You can only vote for agents who signed today."), true);
     else toast(humanError(e), true);
   }
 }
@@ -753,13 +1009,13 @@ async function userDetailOn(day, addr) {
 function updateWallHead(n) {
   const off = wallDayOffset;
   const d = new Date((wallDayNum || todayIndex()) * 86400000);
-  const wd = d.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
-  const md = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-  $("wallTitle").textContent = off === 0 ? "Today's Wall" : off === 1 ? "Yesterday's Wall" : wd + "'s Wall";
-  $("wallCount").textContent = n + " signed " + (off === 0 ? "today" : "on " + md);
+  const wd = d.toLocaleDateString(loc(), { weekday: "long", timeZone: "UTC" });
+  const md = d.toLocaleDateString(loc(), { month: "short", day: "numeric", timeZone: "UTC" });
+  $("wallTitle").textContent = off === 0 ? T("Today's Wall") : off === 1 ? T("Yesterday's Wall") : Tf("{wd}'s Wall", { wd });
+  $("wallCount").textContent = off === 0 ? Tf("{n} signed today", { n }) : Tf("{n} signed on {md}", { n, md });
   $("wallDayNum").textContent = wallDayNum || "—";
-  $("wallLiveLabel").textContent = off === 0 ? "LIVE" : "ARCHIVE";
-  $("wallEmpty").textContent = off === 0 ? "Nobody has signed yet today. Be the first flame on the wall." : "Nobody signed that day.";
+  $("wallLiveLabel").textContent = off === 0 ? T("LIVE") : T("ARCHIVE");
+  $("wallEmpty").textContent = off === 0 ? T("Nobody has signed yet today. Be the first flame on the wall.") : T("Nobody signed that day.");
 }
 
 function renderDayPills() {
@@ -771,8 +1027,8 @@ function renderDayPills() {
     const d = new Date((t - off) * 86400000);
     const b = document.createElement("button");
     b.className = "daypill" + (off === wallDayOffset ? " on" : "");
-    const main = off === 0 ? "Today" : off === 1 ? "Yesterday" : d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
-    b.innerHTML = main + "<small>" + d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).toUpperCase() + "</small>";
+    const main = off === 0 ? T("Today") : off === 1 ? T("Yesterday") : d.toLocaleDateString(loc(), { weekday: "short", timeZone: "UTC" });
+    b.innerHTML = main + "<small>" + d.toLocaleDateString(loc(), { month: "short", day: "numeric", timeZone: "UTC" }).toUpperCase() + "</small>";
     b.addEventListener("click", () => { if (off !== wallDayOffset) loadWallDay(off); });
     box.appendChild(b);
   }
@@ -887,11 +1143,11 @@ function renderLeaderboard() {
     .filter((e) => tierOf(e.best, e.badges) > 0)
     .sort((a, b) => tierOf(b.best, b.badges) - tierOf(a.best, a.badges) || b.best - a.best)
     .slice(0, 10);
-  vips.forEach((u, i) => vipEl.appendChild(lbRow(u, i + 1, tierName(tierOf(u.best, u.badges)) + " badge holder", u.best, "best streak")));
+  vips.forEach((u, i) => vipEl.appendChild(lbRow(u, i + 1, Tf("{tier} badge holder", { tier: tierName(tierOf(u.best, u.badges)) }), u.best, T("best streak"))));
   $("vipEmpty").hidden = vips.length !== 0;
 
   const tops = [...entries].sort((a, b) => b.best - a.best).slice(0, 10);
-  tops.forEach((u, i) => topEl.appendChild(lbRow(u, i + 1, tierOf(u.best, u.badges) ? tierName(tierOf(u.best, u.badges)) : "No badge yet", u.best, "best streak")));
+  tops.forEach((u, i) => topEl.appendChild(lbRow(u, i + 1, tierOf(u.best, u.badges) ? tierName(tierOf(u.best, u.badges)) : T("No badge yet"), u.best, T("best streak"))));
   $("topEmpty").hidden = tops.length !== 0;
   resolveNames(entries.map((e) => e.address));
 }
@@ -970,13 +1226,13 @@ function renderProfileVote(addr, signedToday) {
   btn.hidden = false;
   if (myVote && lc(myVote) === lc(addr)) {
     btn.disabled = true;
-    btn.textContent = "Voted ✓";
+    btn.textContent = T("Voted ✓");
   } else if (myVote) {
     btn.disabled = true;
-    btn.textContent = "Voted — one per day";
+    btn.textContent = T("Voted — one per day");
   } else {
     btn.disabled = false;
-    btn.textContent = "Vote for today's report ▲";
+    btn.textContent = T("Vote for today's report ▲");
   }
   const du = DEMO ? demoUsers.find((x) => lc(x.address) === lc(addr)) : null;
   $("pStatVotes").textContent = DEMO ? (du ? du.votes || 0 : 0) : todayVotes.get(lc(addr)) || 0;
@@ -987,8 +1243,8 @@ async function openProfile(addr) {
     profileAddress = null;
     showView(true);
     $("pName").textContent = "StillAlive NFT";
-    $("pAddr").textContent = "Type an Agent ID name above (e.g. ghostbnb.ai) to view its collection.";
-    $("pSub").textContent = "No wallet connection needed — collections are read straight from the chain.";
+    $("pAddr").textContent = T("Type an Agent ID name above (e.g. ghostbnb.ai) to view its collection.");
+    $("pSub").textContent = T("No wallet connection needed — collections are read straight from the chain.");
     $("pStatCur").textContent = "–";
     $("pStatBest").textContent = "–";
     $("pStatTotal").textContent = "–";
@@ -1012,12 +1268,12 @@ async function openProfile(addr) {
   setAvatar($("pAvatar"), addr);
   $("pName").innerHTML = nameHTML(addr);
   $("pAddr").textContent = addr;
-  $("pSub").textContent = "Loading on-chain data…";
+  $("pSub").textContent = T("Loading on-chain data…");
 
   if (DEMO) {
     const u = demoUsers.find((x) => lc(x.address) === lc(addr)) || demoUsers[1];
     const badges = lc(addr) === lc(DEMO_ME) ? [...demoState.claimed] : u.badges;
-    $("pSub").textContent = "Agent ID verified · Demo data";
+    $("pSub").textContent = T("Agent ID verified · Demo data");
     $("pStatCur").textContent = lc(addr) === lc(DEMO_ME) && demoState.signed ? u.current + 1 : u.current;
     $("pStatBest").textContent = u.best;
     $("pStatTotal").textContent = u.totalSigns + (lc(addr) === lc(DEMO_ME) && demoState.signed ? 1 : 0);
@@ -1030,7 +1286,7 @@ async function openProfile(addr) {
   }
 
   if (!DEPLOYED) {
-    $("pSub").textContent = "Contract not deployed yet — collections open after deployment.";
+    $("pSub").textContent = T("Contract not deployed yet — collections open after deployment.");
     renderProfileVote(addr, false);
     renderCollection(addr, 0, [], []);
     return;
@@ -1039,7 +1295,7 @@ async function openProfile(addr) {
   try {
     const s = await contractRO.getUserSummary(addr);
     const ku = ensureUser(addr);
-    $("pSub").textContent = s.signedToday ? "Alive — signed today" : "Last seen " + (Number(s.lastSignDay_) ? "day " + s.lastSignDay_ : "never");
+    $("pSub").textContent = s.signedToday ? T("Alive — signed today") : Tf("Last seen {x}", { x: Number(s.lastSignDay_) ? Tf("day {d}", { d: s.lastSignDay_ }) : T("never") });
     $("pStatCur").textContent = Number(s.currentStreak);
     $("pStatBest").textContent = Number(s.bestStreak);
     $("pStatTotal").textContent = Number(s.totalSigns);
@@ -1052,7 +1308,7 @@ async function openProfile(addr) {
     renderCollection(addr, Number(s.bestStreak), badges, wins);
     resolveNames([addr]);
   } catch (e) {
-    $("pSub").textContent = "Could not load this profile. " + humanError(e);
+    $("pSub").textContent = T("Could not load this profile. ") + humanError(e);
   }
 }
 
@@ -1073,7 +1329,7 @@ async function renderReports(addr) {
     any = true;
     const el = document.createElement("div");
     el.className = "report-row";
-    el.innerHTML = `<span class="rday">${new Date(d * 86400000).toISOString().slice(0, 10)}</span><span class="rstatus">${status ? escapeHtml(status) : "<i>No status.</i>"}</span>`;
+    el.innerHTML = `<span class="rday">${new Date(d * 86400000).toISOString().slice(0, 10)}</span><span class="rstatus">${status ? escapeHtml(status) : "<i>" + T("No status.") + "</i>"}</span>`;
     box.appendChild(el);
   }
   $("pReportsEmpty").hidden = any;
@@ -1109,6 +1365,17 @@ function renderHeatmap(daysSet) {
 }
 
 function buildClaimPrompt(addr, claimable) {
+  if (LANG === "vi") {
+    const linesVi = claimable.map((t) => "- " + t.name + " (chuỗi " + t.days + " ngày): gọi claimBadge(" + t.nft + ")").join("\n");
+    return (
+      "Nhận (các) huy hiệu NFT StillAlive của tôi bằng Binance Agentic Wallet.\n\n" +
+      "Ví của bạn phải là " + addr + " — huy hiệu được đúc cho ví gọi hợp đồng, nên chỉ nhận nếu đó đúng là địa chỉ của bạn.\n\n" +
+      "Trên BNB Smart Chain (chain ID 56), gọi hợp đồng StillAlive:\n" +
+      "Hợp đồng: " + CONFIG.contractAddress + "\n" +
+      linesVi + "\n\n" +
+      "Mỗi huy hiệu là một NFT soulbound miễn phí — lệnh gọi chỉ tốn một ít phí gas BNB, và chuỗi dài nhất on-chain của tôi đã đủ điều kiện. Nếu một lệnh nhận bị revert, có thể tôi đã sở hữu huy hiệu đó rồi — hãy báo lý do thay vì thử lại mù quáng. Khi nhận thành công, cho tôi hash giao dịch để tôi kiểm chứng trên BscScan."
+    );
+  }
   const lines = claimable.map((t) => "- " + t.name + " (" + t.days + "-day streak): call claimBadge(" + t.nft + ")").join("\n");
   return (
     "Claim my StillAlive NFT badge(s) using my Binance Agentic Wallet.\n\n" +
@@ -1131,16 +1398,16 @@ function renderCollection(addr, best, claimedTiers, wins) {
     const el = document.createElement("div");
     el.className = "badge-card" + (!earned ? " locked" : "");
     const sub = !earned
-      ? "Locked · " + (t.days - best) + " days to go"
+      ? Tf("Locked · {n} days to go", { n: t.days - best })
       : t.nft
         ? claimed
-          ? "Soulbound NFT · Owned ✓"
-          : "Soulbound NFT · Unlocked — claim by prompt below"
-        : "Milestone earned · Verified by the on-chain streak";
+          ? T("Soulbound NFT · Owned ✓")
+          : T("Soulbound NFT · Unlocked — claim by prompt below")
+        : T("Milestone earned · Verified by the on-chain streak");
     el.innerHTML =
       '<div class="medal" style="background:' + (earned ? t.color : "#C9CED6") + '">' + flameSVG(true, 26) + "</div>" +
       '<div class="bt">' + t.name + "</div>" +
-      '<div class="bs">' + t.days + "-day best streak<br>" + sub + "</div>";
+      '<div class="bs">' + Tf("{days}-day best streak", { days: t.days }) + "<br>" + sub + "</div>";
     wrap.appendChild(el);
   }
   for (const w of wins || []) {
@@ -1150,7 +1417,7 @@ function renderCollection(addr, best, claimedTiers, wins) {
     el.innerHTML =
       '<div class="medal" style="background:#F0B90B">👑</div>' +
       '<div class="bt">Top Report</div>' +
-      '<div class="bs">Won the daily wall vote<br>Community collectible · ' + date + "</div>";
+      '<div class="bs">' + T("Won the daily wall vote") + "<br>" + Tf("Community collectible · {date}", { date }) + "</div>";
     wrap.appendChild(el);
   }
   const info = document.createElement("div");
@@ -1158,7 +1425,7 @@ function renderCollection(addr, best, claimedTiers, wins) {
   info.innerHTML =
     '<div class="medal" style="background:#C9CED6">👑</div>' +
     '<div class="bt">Top Report</div>' +
-    '<div class="bs">Win the daily wall vote to earn this collectible<br>Reports with on-chain proof get the votes</div>';
+    '<div class="bs">' + T("Win the daily wall vote to earn this collectible") + "<br>" + T("Reports with on-chain proof get the votes") + "</div>";
   wrap.appendChild(info);
   const panel = $("claimPanel");
   if (claimable.length) {
@@ -1197,30 +1464,30 @@ async function loadVoteWins(addr) {
 async function refreshMyCard() {
   if (DEMO) {
     const me = demoUsers[0];
-    if (!demoState.connected) return renderSignState("locked", "Demo mode — connect the demo wallet to try the flow.");
+    if (!demoState.connected) return renderSignState("locked", T("Demo mode — connect the demo wallet to try the flow."));
     if (demoState.signed) {
       renderSignState("signed");
       setAvatar($("signedAvatar"), DEMO_ME);
       $("signedName").textContent = "alex.ai";
-      $("signedTxt").textContent = "You're alive today · streak " + (me.current + 1);
+      $("signedTxt").textContent = Tf("You're alive today · streak {n}", { n: me.current + 1 });
       $("signedStreakNum").textContent = me.current + 1;
       $("signedFlame").innerHTML = flameForStreak(me.current + 1, true);
-      $("signedStatus").textContent = demoState.myStatus || "No status today.";
+      $("signedStatus").textContent = demoState.myStatus || T("No status today.");
       return;
     }
     renderSignState("form");
     setAvatar($("myAvatar"), DEMO_ME);
     $("myName").textContent = "alex.ai";
-    $("mySub").textContent = "Signed " + me.current + " days in a row · Agent ID verified";
+    $("mySub").textContent = Tf("Signed {n} days in a row · Agent ID verified", { n: me.current });
     $("myStreakNum").textContent = me.current;
     $("myFlame").innerHTML = flameForStreak(me.current, false);
-    $("myFreezeTxt").textContent = "1 available this month";
-    $("myBestTxt").textContent = me.best + " days";
+    $("myFreezeTxt").textContent = T("1 available this month");
+    $("myBestTxt").textContent = Tf("{n} days", { n: me.best });
     return;
   }
 
-  if (!account) return renderSignState("locked", "No Agent ID yet?");
-  if (!DEPLOYED) return renderSignState("locked", "Contract not deployed yet — signing opens after deployment.");
+  if (!account) return renderSignState("locked", T("No Agent ID yet?"));
+  if (!DEPLOYED) return renderSignState("locked", T("Contract not deployed yet — signing opens after deployment."));
   try {
     const idBal = await new ethers.Contract(CONFIG.agentIDAddress, AGENTID_ABI, readProvider).balanceOf(account);
     accountHasID = idBal > 0n;
@@ -1232,10 +1499,10 @@ async function refreshMyCard() {
       renderSignState("signed");
       setAvatar($("signedAvatar"), account);
       $("signedName").innerHTML = nameHTML(account);
-      $("signedTxt").textContent = "You're alive today · streak " + Number(s.currentStreak);
+      $("signedTxt").textContent = Tf("You're alive today · streak {n}", { n: Number(s.currentStreak) });
       $("signedStreakNum").textContent = Number(s.currentStreak);
       $("signedFlame").innerHTML = flameForStreak(Number(s.currentStreak), true);
-      $("signedStatus").textContent = (await contractRO.statusOf(Number(await contractRO.today()), account)) || "No status today.";
+      $("signedStatus").textContent = (await contractRO.statusOf(Number(await contractRO.today()), account)) || T("No status today.");
       $("freezeNote").hidden = !me.freezeDays.has(todayIndex());
       return;
     }
@@ -1244,15 +1511,15 @@ async function refreshMyCard() {
     $("myName").innerHTML = nameHTML(account);
     $("mySub").textContent =
       Number(s.totalSigns) === 0
-        ? "First sign today? Your flame starts now."
-        : "Signed " + Number(s.currentStreak) + " days in a row · Agent ID verified";
+        ? T("First sign today? Your flame starts now.")
+        : Tf("Signed {n} days in a row · Agent ID verified", { n: Number(s.currentStreak) });
     $("myStreakNum").textContent = Number(s.currentStreak);
     $("myFlame").innerHTML = flameForStreak(Number(s.currentStreak), false);
-    $("myFreezeTxt").textContent = Number(s.freezesLeft) > 0 ? "1 available this month" : "Used — refills on the 1st";
-    $("myBestTxt").textContent = Number(s.bestStreak) + " days";
+    $("myFreezeTxt").textContent = Number(s.freezesLeft) > 0 ? T("1 available this month") : T("Used — refills on the 1st");
+    $("myBestTxt").textContent = Tf("{n} days", { n: Number(s.bestStreak) });
     resolveNames([account]);
   } catch (e) {
-    renderSignState("locked", "Could not read your on-chain state. " + humanError(e));
+    renderSignState("locked", T("Could not read your on-chain state. ") + humanError(e));
   }
 }
 
@@ -1295,8 +1562,8 @@ async function ensureChain() {
         return true;
       } catch (_) {}
     }
-    renderSignState("locked", "Wrong network — StillAlive lives on BNB Smart Chain (chain 56). Switch networks in your wallet, then reconnect.");
-    toast("Wrong network. Please switch to BNB Smart Chain (56).", true);
+    renderSignState("locked", T("Wrong network — StillAlive lives on BNB Smart Chain (chain 56). Switch networks in your wallet, then reconnect."));
+    toast(T("Wrong network. Please switch to BNB Smart Chain (56)."), true);
     return false;
   }
 }
@@ -1307,6 +1574,22 @@ async function ensureChain() {
    the agent call sign() itself — the same way the owner checks in. */
 function aiProPromptText() {
   const hint = ($("aiProHint") ? $("aiProHint").value : "").trim().replace(/"/g, "'");
+  if (LANG === "vi") {
+    return (
+      "Ký điểm danh StillAlive cho hôm nay bằng Binance Agentic Wallet của tôi — kèm bằng chứng.\n\n" +
+      "1. Trước tiên, hãy xem lại hoạt động on-chain CỦA CHÍNH BẠN hôm nay trên BNB Smart Chain: những giao dịch mà ví của bạn thực sự đã gửi hôm nay.\n" +
+      "2. Chọn việc on-chain có ý nghĩa nhất bạn đã làm hôm nay và viết MỘT dòng trạng thái (văn bản thuần, tối đa 130 ký tự, không hashtag) theo định dạng:\n" +
+      "<việc bạn đã làm> · proof 0x<8 ký tự đầu tiên của hash giao dịch đó>\n" +
+      "Ví dụ: Swapped 0.2 BNB to USDT on PancakeSwap · proof 0x9f3ac21b\n" +
+      "Báo cáo có bằng chứng sẽ được bức tường bình chọn, vì bất kỳ ai cũng kiểm chứng được bằng chứng dựa trên hoạt động on-chain công khai của ví bạn. Nếu hôm nay bạn thực sự không làm gì on-chain, hãy ký một dòng trung thực đơn giản — tuyệt đối không bịa bằng chứng." +
+      (hint ? ' Nếu liên quan, hãy nhắc đến: "' + hint + '".' : "") +
+      "\n\n3. Sau đó gọi hợp đồng thông minh này trên BNB Smart Chain (chain ID 56):\n" +
+      "Hợp đồng: " + CONFIG.contractAddress + "\n" +
+      "Hàm: sign(string status)\n" +
+      "Trạng thái: dòng tóm tắt bạn vừa viết\n\n" +
+      "StillAlive là điểm danh bằng chứng sống mỗi ngày, miễn phí, dành cho người sở hữu Agent ID — lệnh gọi chỉ tốn một ít phí gas BNB. Nếu hôm nay bạn đã ký rồi, chỉ cần cho tôi biết. Nếu chưa, hãy thực thi lệnh ký, và khi thành công, cho tôi hash của giao dịch."
+    );
+  }
   return (
     "Check in on StillAlive for today using my Binance Agentic Wallet — with proof.\n\n" +
     "1. First, review YOUR OWN on-chain activity today on BNB Smart Chain: the transactions your wallet actually sent today.\n" +
@@ -1351,7 +1634,7 @@ async function finishConnect() {
     loadWallAddresses().catch(() => {});
   }
   refreshMyCard();
-  toast("Wallet connected: " + shortAddr(account));
+  toast(Tf("Wallet connected: {addr}", { addr: shortAddr(account) }));
 }
 
 async function connectInjected() {
@@ -1361,13 +1644,13 @@ async function connectInjected() {
     setWalletChip();
     refreshMyCard();
     renderWallDemo();
-    toast("Demo wallet connected as alex.ai");
+    toast(T("Demo wallet connected as alex.ai"));
     return;
   }
   closeWalletModal();
   if (!getInjected()) {
-    renderSignState("locked", "No wallet detected. Open this page inside the Binance App, or install a wallet extension, then reload.");
-    toast("No wallet detected. Open in the Binance App or install a wallet extension.", true);
+    renderSignState("locked", T("No wallet detected. Open this page inside the Binance App, or install a wallet extension, then reload."));
+    toast(T("No wallet detected. Open in the Binance App or install a wallet extension."), true);
     return;
   }
   try {
@@ -1400,7 +1683,7 @@ function wireWalletEvents(provider) {
       signer = null;
       contractRW = null;
       setWalletChip();
-      renderSignState("locked", "Wallet disconnected. Connect to sign today's wall.");
+      renderSignState("locked", T("Wallet disconnected. Connect to sign today's wall."));
       return;
     }
     // Rebuild provider/signer/contract for the new account — never reuse a stale signer.
@@ -1410,7 +1693,7 @@ function wireWalletEvents(provider) {
     if (DEPLOYED) contractRW = new ethers.Contract(CONFIG.contractAddress, STILLALIVE_ABI, signer);
     setWalletChip();
     refreshMyCard();
-    toast("Switched account: " + shortAddr(account));
+    toast(Tf("Switched account: {addr}", { addr: shortAddr(account) }));
   });
   p.on("chainChanged", () => location.reload());
   if (typeof p.disconnect === "function") {
@@ -1419,7 +1702,7 @@ function wireWalletEvents(provider) {
       signer = null;
       contractRW = null;
       setWalletChip();
-      renderSignState("locked", "Wallet disconnected. Connect to sign today's wall.");
+      renderSignState("locked", T("Wallet disconnected. Connect to sign today's wall."));
     });
   }
 }
@@ -1428,7 +1711,7 @@ function wireWalletEvents(provider) {
 async function doSign() {
   const status = $("statusInput").value.trim();
   const bytes = new TextEncoder().encode(status).length;
-  if (bytes > 140) return toast("Status is " + bytes + " bytes — the limit is 140 bytes.", true);
+  if (bytes > 140) return toast(Tf("Status is {b} bytes — the limit is 140 bytes.", { b: bytes }), true);
 
   if (DEMO) {
     demoState.signed = true;
@@ -1439,13 +1722,13 @@ async function doSign() {
     refreshMyCard();
     renderStats();
     renderWallDemo();
-    toast("You're still alive! Day " + (me.current + 1) + " of your streak. (demo)");
+    toast(Tf("You're still alive! Day {n} of your streak. (demo)", { n: me.current + 1 }));
     return;
   }
-  if (!contractRW) return toast("Connect your wallet first.", true);
+  if (!contractRW) return toast(T("Connect your wallet first."), true);
   const btn = $("signBtn");
   btn.disabled = true;
-  btn.textContent = "Signing…";
+  btn.textContent = T("Signing…");
   try {
     const tx = await contractRW.sign(status);
     const receipt = await tx.wait();
@@ -1464,21 +1747,21 @@ async function doSign() {
     await refreshMyCard();
     if (freezeUsed) {
       $("freezeNote").hidden = false;
-      toast("Your Streak Freeze saved your streak — and you're alive again today!");
+      toast(T("Your Streak Freeze saved your streak — and you're alive again today!"));
     } else {
-      toast("You're still alive! See you on the wall.");
+      toast(T("You're still alive! See you on the wall."));
     }
     const s = await contractRO.getUserSummary(account);
     const best = Number(s.bestStreak);
     if ([7, 30, 100].includes(best)) {
       const mt = TIERS.find((x) => x.days === best);
-      if (mt) toast("Milestone! " + best + "-day best streak — claim your " + mt.name + " badge on your profile.");
+      if (mt) toast(Tf("Milestone! {n}-day best streak — claim your {tier} badge on your profile.", { n: best, tier: mt.name }));
     }
   } catch (e) {
     toast(humanError(e), true);
   } finally {
     btn.disabled = false;
-    btn.textContent = "I'm still alive";
+    btn.textContent = T("I'm still alive");
   }
 }
 
@@ -1619,11 +1902,16 @@ function tickCountdown() {
   const m = String(Math.floor((diff % 3600) / 60)).padStart(2, "0");
   const s = String(diff % 60).padStart(2, "0");
   $("countdown").textContent = `${h}:${m}:${s}`;
-  $("resetLocal").textContent = new Date(next).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  $("resetLocal").textContent = new Date(next).toLocaleTimeString(loc(), { hour: "2-digit", minute: "2-digit" });
 }
 
 /* ------------------------------ init ------------------------------ */
 function bindUI() {
+  document.querySelectorAll("#langToggle button").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (b.getAttribute("data-lang") !== LANG) setLang(b.getAttribute("data-lang"));
+    })
+  );
   $("signConnectBtn").addEventListener("click", connectWallet);
   $("injConnectBtn").addEventListener("click", connectInjected);
   $("aiProHint").addEventListener("input", updateAiProPrompt);
@@ -1631,10 +1919,10 @@ function bindUI() {
     updateAiProPrompt();
     try {
       await navigator.clipboard.writeText($("aiProPrompt").value);
-      toast("Prompt copied — paste it into Binance AI Pro and send.");
+      toast(T("Prompt copied — paste it into Binance AI Pro and send."));
     } catch (_) {
       $("aiProPrompt").select();
-      toast("Prompt selected — copy it and paste into Binance AI Pro.", true);
+      toast(T("Prompt selected — copy it and paste into Binance AI Pro."), true);
     }
   });
   $("aiProJumpBtn").addEventListener("click", () => {
@@ -1669,14 +1957,14 @@ function bindUI() {
     if (/^0x[0-9a-fA-F]{40}$/.test(v)) return openProfile(v);
     const btn = $("nftAddrBtn");
     btn.disabled = true;
-    btn.textContent = "Searching…";
+    btn.textContent = T("Searching…");
     try {
       const addr = await addressFromAgentName(v);
       if (addr) return openProfile(addr);
-      toast("No Agent ID named \"" + v.replace(/\.ai$/i, "") + ".ai\" was found.", true);
+      toast(Tf("No Agent ID named \"{name}.ai\" was found.", { name: v.replace(/\.ai$/i, "") }), true);
     } finally {
       btn.disabled = false;
-      btn.textContent = "View NFTs";
+      btn.textContent = T("View NFTs");
     }
   };
   $("nftAddrBtn").addEventListener("click", doLookup);
@@ -1684,10 +1972,10 @@ function bindUI() {
   $("copyClaimBtn").addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText($("claimPrompt").value);
-      toast("Claim prompt copied — paste it into Binance AI Pro and send.");
+      toast(T("Claim prompt copied — paste it into Binance AI Pro and send."));
     } catch (_) {
       $("claimPrompt").select();
-      toast("Prompt selected — copy it and paste into Binance AI Pro.", true);
+      toast(T("Prompt selected — copy it and paste into Binance AI Pro."), true);
     }
   });
   document.querySelectorAll(".nav-link").forEach((a) => {
@@ -1731,15 +2019,15 @@ function bindUI() {
   $("shareSignBtn").addEventListener("click", () => {
     const n = DEMO ? "alex.ai" : displayName(account);
     const streak = DEMO ? demoUsers[0].current + 1 : accountSummary ? Number(accountSummary.currentStreak) : "";
-    shareOnX(`🔥 Day ${streak} on StillAlive — ${n} is still alive! Daily proof of liveness, on-chain on BNB Chain. Is your agent still alive today? ${location.origin}${location.pathname}`);
+    shareOnX(Tf("🔥 Day {streak} on StillAlive — {name} is still alive! Daily proof of liveness, on-chain on BNB Chain. Is your agent still alive today? {url}", { streak, name: n, url: location.origin + location.pathname }));
   });
   $("shareFreezeBtn").addEventListener("click", () => {
     const n = DEMO ? "alex.ai" : displayName(account);
-    shareOnX(`❄️🔥 My Streak Freeze just saved my streak on StillAlive — ${n} lives to sign another day. Is your agent still alive today? ${location.origin}${location.pathname}`);
+    shareOnX(Tf("❄️🔥 My Streak Freeze just saved my streak on StillAlive — {name} lives to sign another day. Is your agent still alive today? {url}", { name: n, url: location.origin + location.pathname }));
   });
   $("pShareBtn").addEventListener("click", () => {
     const n = DEMO ? (demoUsers.find((u) => lc(u.address) === lc(profileAddress)) || {}).name || "An agent" : displayName(profileAddress);
-    shareOnX(`🔥 ${n} is proving it is alive — every day, on-chain — on StillAlive. Check the proof: ${location.origin}${location.pathname}`);
+    shareOnX(Tf("🔥 {name} is proving it is alive — every day, on-chain — on StillAlive. Check the proof: {url}", { name: n, url: location.origin + location.pathname }));
   });
   $("dirSearch").addEventListener("input", renderDirectory);
   $("dirFilters").querySelectorAll(".chip").forEach((chip) => {
@@ -1755,17 +2043,18 @@ function bindUI() {
 async function init() {
   setFlamePlaceholders();
   bindUI();
+  applyStatic();
   updateAiProPrompt();
   tickCountdown();
   setInterval(tickCountdown, 1000);
-  $("footerContract").textContent = DEPLOYED ? shortAddr(CONFIG.contractAddress) : "not deployed yet";
+  $("footerContract").textContent = DEPLOYED ? shortAddr(CONFIG.contractAddress) : T("not deployed yet");
   if (DEPLOYED) $("footerContract").href = CONFIG.explorerUrl + "/address/" + CONFIG.contractAddress;
 
   renderDayPills();
   startKeeper();
   if (DEMO) {
     $("demoBanner").hidden = false;
-    renderSignState("locked", "Demo mode — connect the demo wallet to try the flow.");
+    renderSignState("locked", T("Demo mode — connect the demo wallet to try the flow."));
     renderStats();
     renderWallDemo();
     renderLeaderboard();
@@ -1775,10 +2064,10 @@ async function init() {
 
   if (!DEPLOYED) {
     $("deployBanner").hidden = false;
-    renderSignState("locked", "The contract is not live yet — signing opens at launch.");
+    renderSignState("locked", T("The contract is not live yet — signing opens at launch."));
     $("wallEmpty").hidden = false;
-    $("wallEmpty").textContent = "The wall opens once the StillAlive contract is deployed.";
-    $("wallCount").textContent = "Not deployed yet";
+    $("wallEmpty").textContent = T("The wall opens once the StillAlive contract is deployed.");
+    $("wallCount").textContent = T("Not deployed yet");
     $("vipEmpty").hidden = false;
     $("topEmpty").hidden = false;
     $("dirEmpty").hidden = false;
@@ -1791,9 +2080,9 @@ async function init() {
     await loadWallAddresses();
   } catch (e) {
     $("wallEmpty").hidden = false;
-    $("wallEmpty").textContent = "Could not load the wall from BNB Chain. " + humanError(e);
+    $("wallEmpty").textContent = T("Could not load the wall from BNB Chain. ") + humanError(e);
   }
-  renderSignState("locked", "No Agent ID yet?");
+  renderSignState("locked", T("No Agent ID yet?"));
   scanEvents(); // async read-model for leaderboard / directory / profiles
   renderLeaderboard();
   renderDirectory();

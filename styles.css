@@ -311,3 +311,8 @@ a.wallet-btn{text-decoration:none;display:inline-block}
 #kTablet .ktl{transform-box:fill-box;transform-origin:0% 50%}
 #kEye{filter:drop-shadow(0 0 4px rgba(240,185,11,.9))}
 @media (max-width:640px){ .wstage{display:none} .wnotes{grid-template-columns:1fr 1fr;padding:14px 12px 4px} }
+
+/* Language toggle (EN/VI) */
+.lang-toggle{display:inline-flex;background:#fff;border:2px solid #14181f;border-radius:999px;overflow:hidden;margin-right:10px;vertical-align:middle}
+.lang-toggle button{border:0;background:transparent;padding:6px 12px;font-family:Nunito,sans-serif;font-weight:800;font-size:13px;cursor:pointer;color:#14181f;line-height:1}
+.lang-toggle button.on{background:#14181f;color:#fff}
