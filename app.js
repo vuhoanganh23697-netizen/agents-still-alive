@@ -781,14 +781,20 @@ async function scanEvents() {
       ],
     ];
     const CHUNK = 50000;
+    let cursor = from - 1;
+    let blocked = false;
     for (let start = from; start <= latest; start += CHUNK) {
       const end = Math.min(latest, start + CHUNK - 1);
       let logs = [];
       try {
         logs = await readProvider.getLogs({ address: CONFIG.contractAddress, topics, fromBlock: start, toBlock: end });
       } catch (_) {
+        // Do not advance the saved cursor past a failed chunk — it is
+        // retried on the next load instead of being skipped forever.
+        blocked = true;
         continue;
       }
+      if (!blocked) cursor = end;
       for (const log of logs) {
         let parsed = null;
         try {
@@ -811,7 +817,7 @@ async function scanEvents() {
         }
       }
     }
-    saveDB(latest);
+    saveDB(blocked ? cursor : latest);
     renderStats();
     renderLeaderboard();
     renderDirectory();
@@ -1211,6 +1217,58 @@ function renderLeaderboard() {
   tops.forEach((u, i) => topEl.appendChild(lbRow(u, i + 1, tierOf(u.best, u.badges) ? tierName(tierOf(u.best, u.badges)) : T("No badge yet"), u.best, T("best streak"))));
   $("topEmpty").hidden = tops.length !== 0;
   resolveNames(entries.map((e) => e.address));
+  refreshStreaks();
+}
+
+/* The event-scan read model can miss chunks (public RPC log limits), which
+ * used to freeze a stale best streak on the board forever. The contract is
+ * the source of truth: re-read getStreak() for every known address,
+ * correct the model (and its localStorage cache), and re-render. Runs at
+ * most once a minute. */
+let streakRefreshAt = 0;
+let streakRefreshing = false;
+async function refreshStreaks() {
+  if (DEMO || !DEPLOYED || !contractRO || streakRefreshing) return;
+  if (Date.now() - streakRefreshAt < 60000) return;
+  streakRefreshing = true;
+  try {
+    const addrs = new Map();
+    for (const k of knownUsers.keys()) addrs.set(k, k);
+    for (const a of todayList) addrs.set(lc(a), a);
+    let changed = false;
+    await Promise.all(
+      [...addrs.values()].slice(0, 25).map(async (addr) => {
+        try {
+          const s = await contractRO.getStreak(addr);
+          const best = Number(s.best);
+          const ku = knownUsers.get(lc(addr));
+          if (ku && ku.best !== best) {
+            ku.best = best;
+            changed = true;
+          }
+          const d = userDetails.get(addr);
+          if (d) {
+            if (d.best !== best) {
+              d.best = best;
+              changed = true;
+            }
+            d.current = Number(s.current);
+          }
+        } catch (_) {}
+      })
+    );
+    streakRefreshAt = Date.now();
+    if (changed) {
+      try {
+        const raw = JSON.parse(localStorage.getItem(dbKey()) || "null");
+        if (raw && typeof raw.lastBlock === "number") saveDB(raw.lastBlock);
+      } catch (_) {}
+      renderLeaderboard();
+      renderDirectory();
+    }
+  } finally {
+    streakRefreshing = false;
+  }
 }
 
 function renderDirectory() {
