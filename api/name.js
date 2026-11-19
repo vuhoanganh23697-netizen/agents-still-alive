@@ -12,6 +12,14 @@
  *
  * GET  /api/name?addresses=0x..,0x..   -> { names: { addr: {name, image} } }
  * POST /api/name { address, name }     -> { ok: true } after verification
+ *
+ * On a GET miss, the endpoint also auto-scans BscScan (Etherscan v2 API,
+ * action=tokennfttx) for the address's Agent ID transfer — the mint shows
+ * up there as a transfer from 0x000...000 — takes its tokenId, resolves
+ * the label via tokenURI(), re-verifies ownerOf(), and caches the pair in
+ * KV forever. Needs BSCSCAN_API_KEY (free BscScan/Etherscan key) as a
+ * server env var; without it, misses simply stay misses. A definitive
+ * "not a holder" answer is negative-cached for 24h.
  */
 const { JsonRpcProvider, Contract } = require("ethers");
 const { ADDR_RE, kv } = require("./_lib");
@@ -49,6 +57,73 @@ async function verifyOwnership(address, name) {
   return { ok: owner && owner.toLowerCase() === address.toLowerCase(), image: meta.image || null };
 }
 
+const EXPLORER_KEY = process.env.BSCSCAN_API_KEY || process.env.ETHERSCAN_API_KEY || "";
+const EXPLORER_BASE = process.env.BSCSCAN_API_BASE || "https://api.etherscan.io/v2/api";
+
+async function labelFromTokenId(tokenId) {
+  const c = new Contract(
+    AGENTID_ADDRESS,
+    ["function tokenURI(uint256) view returns (string)"],
+    provider()
+  );
+  const uri = await c.tokenURI(tokenId);
+  const m = String(uri).match(/\/([^/]+)\.json(?:\?.*)?$/);
+  if (!m) return null;
+  const label = decodeURIComponent(m[1]);
+  let image = null;
+  try {
+    const r = await fetch(uri);
+    if (r.ok) {
+      const meta = await r.json();
+      if (meta && meta.image) image = meta.image;
+    }
+  } catch (_) {}
+  return { name: label + ".ai", image };
+}
+
+/* Auto-scan one address on BscScan. Returns:
+ *   { name, image }  found and owner-verified
+ *   null             definitively not an Agent ID holder
+ *   undefined        scan unavailable (no key / API error) — do not cache */
+async function scanViaExplorer(address) {
+  if (!EXPLORER_KEY) return undefined;
+  const url =
+    EXPLORER_BASE +
+    "?chainid=56&module=account&action=tokennfttx&contractaddress=" +
+    AGENTID_ADDRESS +
+    "&address=" +
+    address +
+    "&page=1&offset=10&sort=asc&apikey=" +
+    EXPLORER_KEY;
+  let data;
+  try {
+    const r = await fetch(url);
+    data = await r.json();
+  } catch (_) {
+    return undefined;
+  }
+  if (!data || !Array.isArray(data.result)) {
+    if (data && data.message === "No transactions found") return null;
+    return undefined;
+  }
+  const hit = data.result.find((t) => String(t.to || "").toLowerCase() === address.toLowerCase());
+  if (!hit) return null;
+  try {
+    const info = await labelFromTokenId(BigInt(hit.tokenID));
+    if (!info) return null;
+    const c = new Contract(
+      AGENTID_ADDRESS,
+      ["function ownerOf(uint256) view returns (address)"],
+      provider()
+    );
+    const owner = await c.ownerOf(BigInt(hit.tokenID));
+    if (!owner || owner.toLowerCase() !== address.toLowerCase()) return null;
+    return info;
+  } catch (_) {
+    return undefined;
+  }
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   if (!kv.configured()) {
@@ -69,14 +144,34 @@ module.exports = async (req, res) => {
       }
       const values = await kv.cmd(["HMGET", "names", ...addrs]);
       const names = {};
+      const missing = [];
       addrs.forEach((a, i) => {
+        let entry = null;
         if (values && values[i]) {
           try {
-            const v = JSON.parse(values[i]);
-            if (v && v.name) names[a] = { name: v.name, image: v.image || null };
+            entry = JSON.parse(values[i]);
           } catch (_) {}
         }
+        if (entry && entry.name) {
+          names[a] = { name: entry.name, image: entry.image || null };
+        } else if (!(entry && entry.ts && Date.now() - entry.ts < 86400000)) {
+          missing.push(a);
+        }
       });
+      // Auto-scan a few unknown addresses per call; results are cached in
+      // KV forever, so each address is scanned at most once, ever.
+      let scans = 0;
+      for (const a of missing) {
+        if (scans >= 3) break;
+        scans++;
+        const found = await scanViaExplorer(a).catch(() => undefined);
+        if (found && found.name) {
+          names[a] = found;
+          await kv.cmd(["HSET", "names", a, JSON.stringify(found)]);
+        } else if (found === null) {
+          await kv.cmd(["HSET", "names", a, JSON.stringify({ name: null, ts: Date.now() })]);
+        }
+      }
       res.status(200).json({ names });
       return;
     }
