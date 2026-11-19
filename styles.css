@@ -249,8 +249,12 @@ footer{background:var(--ink);color:#fff;margin-top:60px}
 #claimPrompt{width:100%;border:2px solid var(--line,#EAECEF);border-radius:12px;padding:12px 13px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.8px;line-height:1.55;background:#0B0E11;color:#EAECEF;resize:vertical;margin-bottom:12px}
 
 a.wallet-btn{text-decoration:none;display:inline-block}
-.sign-locked-inner .idcard-wrap{display:block;background:#0B0E11;border-radius:18px;padding:16px 10px 10px;margin-bottom:6px}
-.idcard-float{display:block;width:148px;max-width:58%;margin:0 auto;animation:idfloat 3.6s ease-in-out infinite;filter:drop-shadow(0 12px 24px rgba(240,185,11,.45))}
-@keyframes idfloat{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-10px) rotate(2deg)}}
+.sign-locked-inner .idcard-wrap{display:block;padding:4px 0 2px;margin-bottom:8px;perspective:700px;animation:idbob 3.8s ease-in-out infinite}
+@keyframes idbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+.idcard-tilt{position:relative;display:block;width:fit-content;margin:0 auto;transform-style:preserve-3d;will-change:transform}
+.idcard-img{display:block;width:188px;max-width:66%;height:auto;filter:drop-shadow(0 16px 26px rgba(240,185,11,.5))}
+.idcard-glare{position:absolute;inset:0;opacity:0;transition:opacity .3s;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.38),rgba(255,255,255,0) 55%);-webkit-mask-image:url(assets/agent-id-card.png);mask-image:url(assets/agent-id-card.png);-webkit-mask-size:contain;mask-size:contain;-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;pointer-events:none}
+.idcard-wrap.hovering .idcard-glare{opacity:1}
+.idcard-wrap.hovering{animation-play-state:paused}
 .btn.gold{background:#F0B90B;color:#0B0E11;border-color:#0B0E11}
 .linklike{display:block;margin:13px auto 0;background:none;border:none;font:inherit;font-size:13px;font-weight:800;color:var(--mut);cursor:pointer;text-decoration:underline}

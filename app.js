@@ -1437,6 +1437,25 @@ function bindUI() {
   });
   $("profileBack").addEventListener("click", () => showView(false));
   $("wallMore").addEventListener("click", renderWallPage);
+  const idTilt = $("idCardTilt");
+  const idWrap = $("idCardLink");
+  if (idTilt && idWrap) {
+    idWrap.addEventListener("mousemove", (e) => {
+      const r = idWrap.getBoundingClientRect();
+      const px = (e.clientX - r.left) / r.width;
+      const py = (e.clientY - r.top) / r.height;
+      idTilt.style.transition = "transform .08s ease-out";
+      idTilt.style.transform = "rotateY(" + ((px - 0.5) * 26).toFixed(1) + "deg) rotateX(" + ((0.5 - py) * 26).toFixed(1) + "deg) scale(1.05)";
+      idTilt.style.setProperty("--gx", px * 100 + "%");
+      idTilt.style.setProperty("--gy", py * 100 + "%");
+      idWrap.classList.add("hovering");
+    });
+    idWrap.addEventListener("mouseleave", () => {
+      idTilt.style.transition = "transform .5s cubic-bezier(.2,.8,.3,1.2)";
+      idTilt.style.transform = "";
+      idWrap.classList.remove("hovering");
+    });
+  }
   $("signBtn").addEventListener("click", doSign);
   $("statusInput").addEventListener("input", () => {
     const bytes = new TextEncoder().encode($("statusInput").value).length;
