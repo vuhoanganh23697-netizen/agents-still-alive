@@ -87,6 +87,12 @@ let topVotesToday = 0;
 let myVoteTodayAddr = null; // lc(address) the connected wallet voted for today // today's signer addresses, in sign order
 let wallRendered = 0;
 const WALL_PAGE = 24;
+let wallDayOffset = 0; // 0 = today, 1 = yesterday, ... 6 — which day the wall shows
+let wallDayNum = 0; // day number currently shown on the wall
+let wallNotesData = []; // sorted note details for the viewed day
+let dayVotes = new Map(); // votes for the viewed day (mirrors todayVotes when offset is 0)
+let dayTopVotes = 0;
+const dayDetailCache = new Map(); // lc(addr)@day -> per-day detail
 const userDetails = new Map(); // addr -> {status, current, best, topTier}
 const knownUsers = new Map(); // addr -> {days:Set, best, badges:Set, pokes, pokeLog:[{from,day}], freezeDays:Set}
 let dbTotalSigns = 0;
@@ -578,6 +584,38 @@ function wallCard(u, opts) {
   return el;
 }
 
+/* One paper note on the board. NFT badge holders (tierOf > 0) get the gold
+   treatment; the day's top-voted report wears the crown. Voting is only
+   possible on today's wall — past days are read-only archive. */
+function wallNote(u) {
+  const tier = tierOf(u.best, u.badges);
+  const votes = dayVotes.get(lc(u.address)) || 0;
+  const isTop = votes > 0 && votes === dayTopVotes;
+  const isToday = wallDayOffset === 0;
+  const myVote = DEMO ? demoState.myVote : myVoteTodayAddr;
+  const canVote = isToday && (DEMO ? demoState.connected : account && accountHasID && contractRW);
+  const isSelf = account && lc(u.address) === lc(account);
+  let voteBtn = "";
+  if (canVote && !isSelf) {
+    if (myVote && lc(myVote) === lc(u.address)) voteBtn = `<button class="wvb" disabled>VOTED ✓</button>`;
+    else if (!myVote) voteBtn = `<button class="wvb" data-vote="${u.address}">VOTE ▲</button>`;
+  }
+  const el = document.createElement("div");
+  el.className = "wnote" + (tier ? " nft" : "");
+  el.innerHTML = `
+    <div class="kcheck">✓</div>
+    <div class="who">${avatarHTML(u.address)}<div class="nm">${nameHTML(u.address)}</div>${isTop ? `<span class="crown">👑</span>` : ""}<span class="wtag">${tier ? "★ NFT · " + escapeHtml(tierName(tier)).toUpperCase() : ""}</span></div>
+    <div class="wst">${u.status ? escapeHtml(u.status) : "<i>No status that day.</i>"}</div>
+    <div class="wft"><span>🔥 ${u.current}</span><span>▲ ${votes} vote${votes === 1 ? "" : "s"}</span>${voteBtn}<a class="wverify" href="https://bscscan.com/address/${u.address}" target="_blank" rel="noopener">Verify ↗</a></div>`;
+  el.addEventListener("click", (e) => {
+    if (e.target.closest("[data-vote]") || e.target.closest("a")) return;
+    openProfile(u.address);
+  });
+  const vb = el.querySelector("[data-vote]");
+  if (vb) vb.addEventListener("click", () => doVote(u.address, vb));
+  return el;
+}
+
 async function doVote(target, btn) {
   if (DEMO) {
     demoState.myVote = lc(target);
@@ -661,30 +699,97 @@ async function userDetail(addr) {
    serverless API stores them in KV, authenticated by wallet signatures and
    checked against the chain. If the API is not live yet, everything below
    degrades quietly — the wall simply shows no tallies. */
-async function fetchVotesToday() {
-  todayVotes = new Map();
-  topVotesToday = 0;
-  myVoteTodayAddr = null;
+async function fetchVotesFor(day) {
+  const out = { map: new Map(), top: 0, myVote: null };
   try {
-    const t = Number(await contractRO.today());
-    const q = new URLSearchParams({ day: String(t) });
+    const q = new URLSearchParams({ day: String(day) });
     if (account) q.set("voter", account);
     const r = await fetch("/api/votes?" + q.toString());
-    if (!r.ok) return;
+    if (!r.ok) return out;
     const data = await r.json();
     for (const [k, v] of Object.entries(data.tallies || {})) {
       const n = Number(v);
-      todayVotes.set(lc(k), n);
-      if (n > topVotesToday) topVotesToday = n;
+      out.map.set(lc(k), n);
+      if (n > out.top) out.top = n;
     }
-    if (data.myVote) myVoteTodayAddr = lc(data.myVote);
+    if (data.myVote) out.myVote = lc(data.myVote);
   } catch (_) {}
+  return out;
+}
+async function fetchVotesToday() {
+  const t = Number(await contractRO.today());
+  const v = await fetchVotesFor(t);
+  todayVotes = v.map;
+  topVotesToday = v.top;
+  myVoteTodayAddr = v.myVote;
+  if (wallDayOffset === 0) {
+    dayVotes = todayVotes;
+    dayTopVotes = topVotesToday;
+  }
 }
 async function refreshWallVotes() {
   await fetchVotesToday();
+  if (wallDayOffset === 0) await buildWallView(wallDayNum, todayList);
+}
+
+async function userDetailOn(day, addr) {
+  const t = Number(await contractRO.today());
+  if (day === t) {
+    const d = await userDetail(addr);
+    return { address: addr, status: d.status, current: d.current, best: d.best, badges: d.badges };
+  }
+  const key = lc(addr) + "@" + day;
+  if (dayDetailCache.has(key)) return dayDetailCache.get(key);
+  const [status, streak] = await Promise.all([contractRO.statusOf(day, addr), contractRO.getStreak(addr)]);
+  const best = Number(streak[1]);
+  const d = { address: addr, status, current: Number(streak[0]), best, badges: TIERS.filter((x) => best >= x.days).map((x) => x.tier) };
+  dayDetailCache.set(key, d);
+  return d;
+}
+
+function updateWallHead(n) {
+  const off = wallDayOffset;
+  const d = new Date((wallDayNum || todayIndex()) * 86400000);
+  const wd = d.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+  const md = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  $("wallTitle").textContent = off === 0 ? "Today's Wall" : off === 1 ? "Yesterday's Wall" : wd + "'s Wall";
+  $("wallCount").textContent = n + " signed " + (off === 0 ? "today" : "on " + md);
+  $("wallDayNum").textContent = wallDayNum || "—";
+  $("wallLiveLabel").textContent = off === 0 ? "LIVE" : "ARCHIVE";
+  $("wallEmpty").textContent = off === 0 ? "Nobody has signed yet today. Be the first flame on the wall." : "Nobody signed that day.";
+}
+
+function renderDayPills() {
+  const box = $("dayPills");
+  if (!box) return;
+  box.innerHTML = "";
+  const t = todayIndex();
+  for (let off = 0; off < 7; off++) {
+    const d = new Date((t - off) * 86400000);
+    const b = document.createElement("button");
+    b.className = "daypill" + (off === wallDayOffset ? " on" : "");
+    const main = off === 0 ? "Today" : off === 1 ? "Yesterday" : d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+    b.innerHTML = main + "<small>" + d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).toUpperCase() + "</small>";
+    b.addEventListener("click", () => { if (off !== wallDayOffset) loadWallDay(off); });
+    box.appendChild(b);
+  }
+}
+
+async function buildWallView(day, list) {
+  wallDayNum = day;
+  const details = [];
+  for (const addr of list) {
+    try {
+      details.push(await userDetailOn(day, addr));
+    } catch (_) {}
+  }
+  // NFT holders first, then most-voted — the board honours achievement.
+  details.sort((a, b) => tierOf(b.best, b.badges) - tierOf(a.best, a.badges) || (dayVotes.get(lc(b.address)) || 0) - (dayVotes.get(lc(a.address)) || 0));
+  wallNotesData = details;
   wallRendered = 0;
   $("wallGrid").innerHTML = "";
-  await renderWallPage();
+  updateWallHead(details.length);
+  renderWallPage();
 }
 
 async function loadWallAddresses() {
@@ -700,28 +805,48 @@ async function loadWallAddresses() {
     void t;
   }
   await fetchVotesToday();
-  wallRendered = 0;
-  $("wallGrid").innerHTML = "";
-  await renderWallPage();
+  if (wallDayOffset === 0) await buildWallView(Number(await contractRO.today()), todayList);
 }
 
-async function renderWallPage() {
-  const grid = $("wallGrid");
-  const slice = todayList.slice(wallRendered, wallRendered + WALL_PAGE);
-  for (const addr of slice) {
-    let d;
-    try {
-      d = await userDetail(addr);
-    } catch (_) {
-      continue;
-    }
-    grid.appendChild(wallCard({ address: addr, status: d.status, current: d.current, best: d.best, badges: d.badges }));
+async function loadWallDay(offset) {
+  wallDayOffset = offset;
+  renderDayPills();
+  if (DEMO) {
+    renderWallDemo();
+    return;
   }
+  if (!contractRO) return;
+  if (offset === 0) {
+    await loadWallAddresses();
+    return;
+  }
+  const day = Number(await contractRO.today()) - offset;
+  wallDayNum = day;
+  let list = [];
+  try {
+    const total = Number(await contractRO.aliveCountOn(day));
+    let off = 0;
+    while (off < total) {
+      const [page] = await contractRO.getSignersOfDay(day, off, 100);
+      list.push(...page);
+      off += page.length;
+      if (!page.length) break;
+    }
+  } catch (_) {}
+  const v = await fetchVotesFor(day);
+  dayVotes = v.map;
+  dayTopVotes = v.top;
+  await buildWallView(day, list);
+}
+
+function renderWallPage() {
+  const grid = $("wallGrid");
+  const slice = wallNotesData.slice(wallRendered, wallRendered + WALL_PAGE);
+  for (const d of slice) grid.appendChild(wallNote(d));
   wallRendered += slice.length;
-  $("wallCount").textContent = `${todayList.length} signed today`;
-  $("wallEmpty").hidden = todayList.length !== 0;
-  $("wallMore").hidden = wallRendered >= todayList.length;
-  resolveNames(slice);
+  $("wallEmpty").hidden = wallNotesData.length !== 0;
+  $("wallMore").hidden = wallRendered >= wallNotesData.length;
+  resolveNames(slice.map((d) => d.address));
 }
 
 
@@ -1327,29 +1452,128 @@ async function doSign() {
 
 /* ------------------------------ demo rendering ------------------------------ */
 function renderWallDemo() {
+  renderDayPills();
   const grid = $("wallGrid");
   grid.innerHTML = "";
-  const signed = demoUsers.filter((u) => u.signedToday || (demoState.signed && lc(u.address) === lc(DEMO_ME)));
-  for (const u of signed) {
-    grid.appendChild(
-      wallCard({
+  const day = todayIndex() - wallDayOffset;
+  wallDayNum = day;
+  let entries = [];
+  if (wallDayOffset === 0) {
+    entries = demoUsers
+      .filter((u) => u.signedToday || (demoState.signed && lc(u.address) === lc(DEMO_ME)))
+      .map((u) => ({
         address: u.address,
         status: lc(u.address) === lc(DEMO_ME) && demoState.signed ? demoState.myStatus : u.status,
         current: lc(u.address) === lc(DEMO_ME) && demoState.signed ? u.current + 1 : u.current,
         best: u.best,
         badges: u.badges,
         votes: u.votes || 0,
-      })
-    );
+      }));
+  } else {
+    entries = demoUsers
+      .filter((u) => demoDaysFor(u).has(day))
+      .map((u) => ({
+        address: u.address,
+        status: u.status,
+        current: Math.max(1, u.current - wallDayOffset),
+        best: u.best,
+        badges: u.badges,
+        votes: (hashStr(lc(u.address)) + wallDayOffset * 7) % 6,
+      }));
   }
-  $("wallCount").textContent = signed.length + " signed today";
-  $("wallEmpty").hidden = signed.length !== 0;
+  dayVotes = new Map(entries.map((e) => [lc(e.address), e.votes || 0]));
+  dayTopVotes = Math.max(0, ...entries.map((e) => e.votes || 0));
+  entries.sort((a, b) => tierOf(b.best, b.badges) - tierOf(a.best, a.badges) || (b.votes || 0) - (a.votes || 0));
+  for (const e of entries) grid.appendChild(wallNote(e));
+  updateWallHead(entries.length);
+  $("wallEmpty").hidden = entries.length !== 0;
   $("wallMore").hidden = true;
   // Demo names are known — patch the generic name spans with demo names.
   for (const u of demoUsers) {
     nameCacheSet(u.address, { name: u.name, image: null });
     patchName(u.address);
   }
+}
+
+/* ------------------------------ keeper scene ------------------------------
+   The little keeper who lives under the board: walks in through the door,
+   reads the notes (each one lights up as he looks at it), records them on
+   his tablet (a ✓ lands on every note he has checked), then walks out.
+   Pure SVG + rAF, 12s loop. */
+function startKeeper() {
+  const stage = $("wallStage");
+  const agent = $("keeper");
+  if (!stage || !agent) return;
+  const flip = $("kFlip"), head = $("kHead"), armR = $("kArmR"), legL = $("kLegL"), legR = $("kLegR"),
+    tablet = $("kTablet"), eye = $("kEye"), panel = $("kPanel"), spill = $("kSpill");
+  const lines = [...document.querySelectorAll("#kTablet .ktl")];
+  const T = 12;
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const seg = (t, a, b) => clamp01((t - a) / (b - a));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const ease = (k) => k * k * (3 - 2 * k);
+  function pose(t) {
+    const W = stage.clientWidth || 1160;
+    const DOOR_X = W - 190, SPOT_X = Math.max(110, W * 0.33);
+    let x, facing = 1, walkPhase = -1, headRot = 0, eyeX = 0, eyeY = 0, armRot = 0, tabK = 0, doorK = 0, agentOp = 1;
+    if (t < 2.2) {
+      const k = ease(seg(t, 0, 2.2)); x = lerp(DOOR_X, SPOT_X, k); facing = -1; walkPhase = t; doorK = 1 - seg(t, 0.5, 1.4);
+    } else if (t < 4.2) {
+      x = SPOT_X; facing = -1; headRot = -7; eyeX = Math.sin((t - 2.2) * 3.4) * 6.5;
+    } else if (t < 8.2) {
+      x = SPOT_X; facing = -1; tabK = seg(t, 4.2, 4.7); headRot = 4; eyeY = 2.4; eyeX = Math.sin((t - 4.2) * 7) * 3.4; armRot = Math.sin((t - 4.2) * 13) * 8;
+    } else if (t < 9.0) {
+      x = SPOT_X; facing = -1; tabK = 1 - seg(t, 8.2, 8.7); headRot = 6 * Math.sin(seg(t, 8.2, 9.0) * Math.PI);
+    } else if (t < 11.0) {
+      const k = ease(seg(t, 9.0, 11.0)); x = lerp(SPOT_X, DOOR_X, k); facing = 1; walkPhase = t;
+    } else {
+      x = DOOR_X + seg(t, 11.0, 11.7) * 22; facing = 1; agentOp = 1 - seg(t, 11.15, 11.75); doorK = seg(t, 11.0, 11.5) * (1 - seg(t, 11.6, 12.0));
+    }
+    const walking = walkPhase >= 0;
+    const bob = walking ? Math.abs(Math.sin(walkPhase * 9)) * 4.5 : Math.sin(t * 1.6) * 1.1;
+    const legSwing = walking ? Math.sin(walkPhase * 9) * 24 : 0;
+    agent.style.transform = "translateX(" + x + "px) translateY(" + -bob + "px)";
+    agent.style.opacity = agentOp;
+    flip.style.transform = "scaleX(" + facing + ")";
+    legL.style.transform = "rotate(" + legSwing + "deg)";
+    legR.style.transform = "rotate(" + -legSwing + "deg)";
+    head.style.transform = "rotate(" + headRot + "deg)";
+    eye.setAttribute("cx", 50 + eyeX);
+    eye.setAttribute("cy", 36.5 + eyeY);
+    armR.style.transform = "rotate(" + armRot + "deg)";
+    tablet.style.opacity = tabK;
+    tablet.style.transform = "translateY(" + (1 - tabK) * 10 + "px) rotate(" + (1 - tabK) * -14 + "deg)";
+    lines.forEach((ln, i) => { ln.style.transform = "scaleX(" + (t < 4.2 ? 0 : seg(t, 4.7 + i * 1.05, 5.6 + i * 1.05)) + ")"; });
+    panel.style.transform = "perspective(300px) rotateY(" + -doorK * 62 + "deg)";
+    spill.style.opacity = doorK * 0.9;
+    const notes = document.querySelectorAll("#wallGrid .wnote");
+    const scanIdx = t < 2.2 ? -1 : t < 4.2 ? Math.floor((t - 2.2) / 0.66) : t < 8.2 ? 3 + Math.floor((t - 4.2) / 1.0) : -1;
+    notes.forEach((n, i) => {
+      n.classList.toggle("scan", i === scanIdx);
+      if (i < scanIdx || (t >= 8.2 && i <= 6)) n.classList.add("recorded");
+    });
+  }
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    setTimeout(() => pose(6.4), 60); // after the wall's notes have rendered
+    return;
+  }
+  const kt = new URLSearchParams(location.search).get("keeperT");
+  if (kt !== null) {
+    setTimeout(() => pose(parseFloat(kt)), 60);
+    return;
+  }
+  const t0 = performance.now();
+  let lastCycle = -1;
+  (function loop(now) {
+    const el = (now - t0) / 1000;
+    const cyc = Math.floor(el / T);
+    if (cyc !== lastCycle) {
+      lastCycle = cyc;
+      document.querySelectorAll("#wallGrid .wnote.recorded").forEach((n) => n.classList.remove("recorded"));
+    }
+    pose(el % T);
+    requestAnimationFrame(loop);
+  })(t0);
 }
 
 /* ------------------------------ countdown ------------------------------ */
@@ -1496,6 +1720,8 @@ async function init() {
   $("footerContract").textContent = DEPLOYED ? shortAddr(CONFIG.contractAddress) : "not deployed yet";
   if (DEPLOYED) $("footerContract").href = CONFIG.explorerUrl + "/address/" + CONFIG.contractAddress;
 
+  renderDayPills();
+  startKeeper();
   if (DEMO) {
     $("demoBanner").hidden = false;
     renderSignState("locked", "Demo mode — connect the demo wallet to try the flow.");
