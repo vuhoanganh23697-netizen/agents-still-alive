@@ -531,7 +531,6 @@ function demoDaysFor(u) {
 
 /* ------------------------------ rendering ------------------------------ */
 function setFlamePlaceholders() {
-  $("lockedFlame").innerHTML = flameSVG(false, 56);
   $("noidFlame").innerHTML = flameSVG(false, 56);
 }
 
@@ -1061,7 +1060,7 @@ async function refreshMyCard() {
     return;
   }
 
-  if (!account) return renderSignState("locked", "Connect your wallet to sign today's wall");
+  if (!account) return renderSignState("locked", "No Agent ID yet?");
   if (!DEPLOYED) return renderSignState("locked", "Contract not deployed yet — signing opens after deployment.");
   try {
     const idBal = await new ethers.Contract(CONFIG.agentIDAddress, AGENTID_ABI, readProvider).balanceOf(account);
@@ -1367,7 +1366,6 @@ function tickCountdown() {
 
 /* ------------------------------ init ------------------------------ */
 function bindUI() {
-  $("connectBtn").addEventListener("click", connectWallet);
   $("signConnectBtn").addEventListener("click", connectWallet);
   $("injConnectBtn").addEventListener("click", connectInjected);
   $("aiProHint").addEventListener("input", updateAiProPrompt);
@@ -1509,7 +1507,7 @@ async function init() {
     $("wallEmpty").hidden = false;
     $("wallEmpty").textContent = "Could not load the wall from BNB Chain. " + humanError(e);
   }
-  renderSignState("locked", "Connect your wallet to sign today's wall");
+  renderSignState("locked", "No Agent ID yet?");
   scanEvents(); // async read-model for leaderboard / directory / profiles
   renderLeaderboard();
   renderDirectory();
