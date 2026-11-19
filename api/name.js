@@ -13,13 +13,17 @@
  * GET  /api/name?addresses=0x..,0x..   -> { names: { addr: {name, image} } }
  * POST /api/name { address, name }     -> { ok: true } after verification
  *
- * On a GET miss, the endpoint also auto-scans BscScan (Etherscan v2 API,
- * action=tokennfttx) for the address's Agent ID transfer — the mint shows
- * up there as a transfer from 0x000...000 — takes its tokenId, resolves
- * the label via tokenURI(), re-verifies ownerOf(), and caches the pair in
- * KV forever. Needs BSCSCAN_API_KEY (free BscScan/Etherscan key) as a
- * server env var; without it, misses simply stay misses. A definitive
- * "not a holder" answer is negative-cached for 24h.
+ * On a GET miss, the endpoint also auto-scans an NFT indexer for the
+ * address's Agent ID transfer — the mint shows up there as a transfer
+ * from 0x000...000 — takes its tokenId, resolves the label via
+ * tokenURI(), re-verifies ownerOf(), and caches the pair in KV forever.
+ * Two providers are supported, tried in order:
+ *   1. Moralis (MORALIS_API_KEY) — free tier covers BSC.
+ *   2. Etherscan v2 / BscScan (BSCSCAN_API_KEY) — note: BSC is behind a
+ *      paid plan there since 2025, so free keys return NOTOK and this
+ *      path simply stays unavailable.
+ * Without any key, misses simply stay misses. A definitive "not a
+ * holder" answer is negative-cached for 24h.
  */
 const { JsonRpcProvider, Contract } = require("ethers");
 const { ADDR_RE, kv } = require("./_lib");
@@ -124,6 +128,59 @@ async function scanViaExplorer(address) {
   }
 }
 
+const MORALIS_KEY = process.env.MORALIS_API_KEY || "";
+const MORALIS_BASE = process.env.MORALIS_API_BASE || "https://deep-index.moralis.io/api/v2.2";
+
+/* Same tri-state contract as scanViaExplorer. */
+async function scanViaMoralis(address) {
+  if (!MORALIS_KEY) return undefined;
+  let data;
+  try {
+    const r = await fetch(
+      MORALIS_BASE + "/" + address + "/nft/transfers?chain=bsc&format=decimal&limit=100",
+      { headers: { "X-API-Key": MORALIS_KEY, accept: "application/json" } }
+    );
+    if (r.status === 401 || r.status === 403) return undefined;
+    data = await r.json();
+  } catch (_) {
+    return undefined;
+  }
+  if (!data || !Array.isArray(data.result)) return undefined;
+  const hit = data.result.find(
+    (t) =>
+      String(t.token_address || "").toLowerCase() === AGENTID_ADDRESS.toLowerCase() &&
+      String(t.to_address || "").toLowerCase() === address.toLowerCase()
+  );
+  if (!hit) {
+    // Moralis returns the wallet's transfers across all contracts; an
+    // empty page is a definitive "no transfers at all". A page without
+    // an Agent ID hit may just be truncated — treat as inconclusive
+    // unless the wallet has no transfers whatsoever.
+    return data.result.length === 0 ? null : undefined;
+  }
+  try {
+    const info = await labelFromTokenId(BigInt(hit.token_id));
+    if (!info) return null;
+    const c = new Contract(
+      AGENTID_ADDRESS,
+      ["function ownerOf(uint256) view returns (address)"],
+      provider()
+    );
+    const owner = await c.ownerOf(BigInt(hit.token_id));
+    if (!owner || owner.toLowerCase() !== address.toLowerCase()) return null;
+    return info;
+  } catch (_) {
+    return undefined;
+  }
+}
+
+/* Try each indexer in order; first conclusive answer wins. */
+async function scanAddress(address) {
+  const viaMoralis = await scanViaMoralis(address).catch(() => undefined);
+  if (viaMoralis !== undefined) return viaMoralis;
+  return scanViaExplorer(address).catch(() => undefined);
+}
+
 module.exports = async (req, res) => {
   res.setHeader("Content-Type", "application/json");
   if (!kv.configured()) {
@@ -164,7 +221,7 @@ module.exports = async (req, res) => {
       for (const a of missing) {
         if (scans >= 3) break;
         scans++;
-        const found = await scanViaExplorer(a).catch(() => undefined);
+        const found = await scanAddress(a);
         if (found && found.name) {
           names[a] = found;
           await kv.cmd(["HSET", "names", a, JSON.stringify(found)]);
