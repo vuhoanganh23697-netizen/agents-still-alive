@@ -157,13 +157,37 @@ nav a:hover{color:var(--ink);box-shadow:inset 0 -3px 0 var(--y)}
 .heat i{width:15px;height:15px;border-radius:4px;background:#EBEDF0;display:block}
 .heat i.l1{background:#9BE15D}.heat i.l2{background:#58CC02}.heat i.l3{background:#46A302}
 .heat-note{font-size:12.5px;color:var(--mut);font-weight:700;margin-top:6px}
-.badges{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.badge-card{border:2px solid var(--line);border-radius:17px;padding:16px 10px;text-align:center}
-.badge-card .medal{width:52px;height:52px;border-radius:50%;margin:0 auto 8px;display:flex;align-items:center;justify-content:center}
-.badge-card .bt{font-size:14.5px;font-weight:900}
-.badge-card .bs{font-size:11.5px;font-weight:800;color:var(--mut);margin-top:3px;line-height:1.4}
-.badge-card.locked{opacity:.45;filter:grayscale(1)}
-.badge-card .btn{margin-top:10px}
+.badges{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.nft-card{border-radius:20px;padding:3px;background:linear-gradient(160deg,#8C6239,#D9A05B 45%,#8C6239);box-shadow:0 8px 22px -10px rgba(20,24,31,.45)}
+.nft-card.r2{background:linear-gradient(160deg,#8E97A3,#E5E9EF 45%,#8E97A3)}
+.nft-card.r3{background:linear-gradient(160deg,#6D28D9,#C084FC 45%,#6D28D9)}
+.nft-card.r4{background:linear-gradient(160deg,#9A7400,#F0B90B 45%,#9A7400)}
+.nft-card.r5{background:linear-gradient(120deg,#F0B90B,#FF86D2,#14B8D4,#F0B90B);background-size:280% 280%;animation:holoShift 7s linear infinite}
+.nft-card.champ{background:linear-gradient(160deg,#9A7400,#F0B90B 45%,#9A7400)}
+.nft-card.locked{background:linear-gradient(160deg,#3A4048,#4A515B 45%,#3A4048);box-shadow:none}
+.nft-card.owned{box-shadow:0 14px 30px -10px rgba(20,24,31,.55)}
+.nft-card.claimable{animation:claimPulse 2.2s ease-in-out infinite}
+@keyframes claimPulse{0%,100%{box-shadow:0 0 0 0 rgba(240,185,11,.55)}50%{box-shadow:0 0 0 7px rgba(240,185,11,0)}}
+@keyframes holoShift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.nft-frame{background:#12151C;border-radius:17px;padding:12px 12px 13px;color:#EDEFF2;position:relative;overflow:hidden}
+.nft-frame::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.13) 48%,transparent 62%);transform:translateX(-120%);transition:transform .8s ease;pointer-events:none}
+.nft-card:hover .nft-frame::after{transform:translateX(120%)}
+.nft-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
+.nft-rarity{font-size:10.5px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase;color:#D9A05B}
+.r2 .nft-rarity{color:#C9D1DB}.r3 .nft-rarity{color:#C084FC}.r4 .nft-rarity{color:#F8D33A}.r5 .nft-rarity{color:#F8D33A}.champ .nft-rarity{color:#F8D33A}.locked .nft-rarity{color:#707A8A}
+.nft-days{font-size:10.5px;font-weight:900;letter-spacing:1px;color:#9AA3AD}
+.nft-art{background:radial-gradient(circle at 50% 68%,rgba(255,150,0,.16),rgba(255,150,0,0) 62%),#171B23;border-radius:12px;aspect-ratio:1.12/1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.nft-art svg{width:86%;height:86%}
+.nft-card.owned .flame-body{transform-box:fill-box;transform-origin:50% 100%;animation:flick 2.8s ease-in-out infinite}
+@keyframes flick{0%,100%{transform:scaleY(1) skewX(0deg)}30%{transform:scaleY(1.035) skewX(1.1deg)}55%{transform:scaleY(.985) skewX(-.8deg)}75%{transform:scaleY(1.02) skewX(.5deg)}}
+.nft-name{font-size:16.5px;font-weight:900;margin-top:11px;color:#fff}
+.nft-stats{font-size:11.5px;font-weight:800;color:#9AA3AD;margin-top:2px}
+.nft-quote{font-size:12.5px;font-weight:600;font-style:italic;color:#D8DBE0;line-height:1.45;margin-top:7px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.nft-prog{height:6px;background:#262B33;border-radius:99px;margin-top:9px;overflow:hidden}
+.nft-prog i{display:block;height:100%;background:linear-gradient(90deg,#FF9600,#F0B90B);border-radius:99px}
+.nft-state{font-size:12px;font-weight:800;margin-top:8px;color:#9AA3AD;line-height:1.4}
+.nft-card.owned .nft-state{color:#58CC02}
+.nft-card.claimable .nft-state{color:#F8D33A}
 .poke-item{display:flex;align-items:center;gap:11px;border:2px solid var(--line);border-radius:15px;padding:11px 14px;margin-top:9px}
 .poke-item .avatar{width:38px;height:38px;border-radius:11px;font-size:16px}
 .poke-item .pt{font-size:14px;font-weight:800;line-height:1.35}

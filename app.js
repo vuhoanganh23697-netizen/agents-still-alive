@@ -260,6 +260,13 @@ const VI = {
  "Follow @StillAliveAgent on X ↗": "Theo dõi @StillAliveAgent trên X ↗",
  ". The prompt sets up ONE task for 7 days: each day your agent summarizes its real on-chain activity into one short status, attaches a proof reference, then signs. Dev Mode locks after 7 days — paste the prompt again to renew. Reports with proof are the ones the wall can verify — and vote for:": ". Prompt này tạo MỘT task cho 7 ngày: mỗi ngày agent tóm tắt hoạt động on-chain thật của nó thành một dòng trạng thái ngắn, đính kèm tham chiếu bằng chứng, rồi ký. Dev Mode sẽ khóa sau 7 ngày — chỉ cần dán lại prompt để gia hạn. Báo cáo có bằng chứng là loại bức tường kiểm chứng được — và bình chọn được:",
  "Send it once — your agent creates the 7-day task and signs today's report right away, then checks in daily on its own. Come back and watch your flame grow on the wall.": "Chỉ gửi một lần — agent sẽ tạo task 7 ngày và ký báo cáo hôm nay ngay, rồi tự điểm danh mỗi ngày. Quay lại xem ngọn lửa của bạn lớn dần trên tường.",
+ "Common": "Phổ thông",
+ "Rare": "Hiếm",
+ "Epic": "Sử thi",
+ "Legendary": "Huyền thoại",
+ "Mythic": "Thần thoại",
+ "Champion": "Vô địch",
+ "Community collectible": "Vật sưu tầm cộng đồng",
  "total signs": "tổng lượt ký",
  "Day ends in": "Ngày kết thúc sau",
  "Resets 00:00 UTC ·": "Đặt lại 00:00 UTC ·",
@@ -1641,6 +1648,14 @@ async function openProfile(addr) {
     const badges = [];
     for (const t of TIERS) if (t.nft && (await contractRO.hasBadge(addr, t.nft))) badges.push(t.tier);
     const wins = await loadVoteWins(addr);
+    // Engrave each Champion card with the report that actually won the day.
+    await Promise.all(
+      wins.map(async (w) => {
+        try {
+          w.status = await contractRO.statusOf(w.day, addr);
+        } catch (_) {}
+      })
+    );
     renderCollection(addr, Number(s.bestStreak), badges, wins);
     resolveNames([addr]);
   } catch (e) {
@@ -1723,6 +1738,86 @@ function buildClaimPrompt(addr, claimable) {
   );
 }
 
+/* ---------------- NFT cards: rarity frames + the evolving flame ----------------
+ * One character that evolves across the five streak tiers, drawn in code
+ * (SVG) so the whole set stays consistent. Stage = TIERS tier (1..5);
+ * stage 6 is the Top Report champion. sil = locked silhouette teaser. */
+const RARITIES = ["Common", "Rare", "Epic", "Legendary", "Mythic"];
+const FLAME_STAGES = [
+  null,
+  { s: 2.6, g: ["#FFD08A", "#FF9600"], face: "sleepy", extra: "", sparks: 2 },
+  { s: 3.6, g: ["#FFB25E", "#FF7A1A"], face: "happy", extra: "", sparks: 3 },
+  { s: 3.9, g: ["#FF8A5C", "#F6465D"], face: "cool", extra: "", sparks: 4 },
+  { s: 4.1, g: ["#FFD76A", "#FF9600"], face: "proud", extra: "crown-silver", sparks: 5 },
+  { s: 4.2, g: ["#FFE98A", "#F0B90B"], face: "joy", extra: "wings", sparks: 6 },
+  { s: 3.8, g: ["#FFE066", "#F59E0B"], face: "happy", extra: "crown-gold", sparks: 5 },
+];
+
+function flameFace(kind) {
+  const ink = "#181A20";
+  const eye = (x) => `<circle cx="${x}" cy="13.9" r="1.05" fill="${ink}"/>`;
+  const arc = (d) => `<path d="${d}" stroke="${ink}" stroke-width=".85" fill="none" stroke-linecap="round"/>`;
+  switch (kind) {
+    case "sleepy":
+      return arc("M8.7 14.1 q1.25 1.05 2.5 0") + arc("M12.8 14.1 q1.25 1.05 2.5 0") + `<circle cx="12" cy="16.5" r=".85" fill="${ink}"/>`;
+    case "cool":
+      return `<rect x="7.1" y="12" width="9.8" height="3.5" rx="1.7" fill="#14161A"/><path d="M8.4 14.2 l3.2 0" stroke="#3D434D" stroke-width=".7" stroke-linecap="round"/>` + arc("M10.3 16.6 q2 1.1 3.5 -.3");
+    case "proud":
+      return eye(9.9) + eye(14.1) + arc("M10.1 16.2 q1.9 1.5 3.8 0");
+    case "joy":
+      return arc("M8.7 14.3 q1.25 -1.5 2.5 0") + arc("M12.8 14.3 q1.25 -1.5 2.5 0") + `<path d="M10.1 15.8 q1.9 2.1 3.8 0 z" fill="${ink}"/>`;
+    default:
+      return eye(9.9) + eye(14.1) + `<ellipse cx="8.4" cy="15.9" rx=".95" ry=".55" fill="#FF7A45" opacity=".55"/><ellipse cx="15.6" cy="15.9" rx=".95" ry=".55" fill="#FF7A45" opacity=".55"/>` + arc("M10.2 16 q1.8 1.6 3.6 0");
+  }
+}
+
+function flameArt(stage, sil) {
+  const st = FLAME_STAGES[stage] || FLAME_STAGES[2];
+  const gid = "fg" + stage + (sil ? "s" : "");
+  const dark = "#262B33";
+  const bodyFill = sil ? dark : `url(#${gid})`;
+  const acc = (c) => (sil ? dark : c);
+  const tf = `translate(60,111) scale(${st.s}) translate(-12,-21)`;
+  let wings = "";
+  if (st.extra === "wings") {
+    wings =
+      `<path d="M44 84 C24 78 14 62 16 44 C24 54 32 58 40 60 C33 66 34 76 44 84 Z" fill="${bodyFill}"/>` +
+      `<path d="M76 84 C96 78 106 62 104 44 C96 54 88 58 80 60 C87 66 86 76 76 84 Z" fill="${bodyFill}"/>`;
+  }
+  let crown = "";
+  if (st.extra === "crown-silver" || st.extra === "crown-gold") {
+    const c = st.extra === "crown-gold" ? "#F0B90B" : "#C7CDD6";
+    crown = `<polygon points="6.9,7.3 8.1,3.7 10.3,6.2 12,3.1 13.7,6.2 15.9,3.7 17.1,7.3" fill="${acc(c)}"/><rect x="6.9" y="7.1" width="10.2" height="1.5" fill="${acc(c)}"/>`;
+  }
+  const halo = st.extra === "wings" ? `<ellipse cx="60" cy="14" rx="15" ry="4.4" fill="none" stroke="${acc("#F0B90B")}" stroke-width="2.6" opacity=".9"/>` : "";
+  const spots = [
+    [28, 34],
+    [92, 30],
+    [20, 64],
+    [100, 60],
+    [34, 16],
+    [88, 86],
+  ];
+  let sparks = "";
+  for (let i = 0; i < st.sparks; i++) {
+    const [cx, cy] = spots[i];
+    const r = 4.6;
+    sparks += `<path d="M${cx} ${cy - r} Q${cx + r * 0.18} ${cy - r * 0.18} ${cx + r} ${cy} Q${cx + r * 0.18} ${cy + r * 0.18} ${cx} ${cy + r} Q${cx - r * 0.18} ${cy + r * 0.18} ${cx - r} ${cy} Q${cx - r * 0.18} ${cy - r * 0.18} ${cx} ${cy - r} Z" fill="${acc("#FFC53D")}" opacity="${sil ? 0.5 : 0.9}"/>`;
+  }
+  return (
+    `<svg viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${st.g[0]}"/><stop offset="1" stop-color="${st.g[1]}"/></linearGradient></defs>` +
+    `<ellipse cx="60" cy="109" rx="30" ry="5.5" fill="${sil ? "#1B1F26" : st.g[1]}" opacity="${sil ? 0.7 : 0.28}"/>` +
+    wings +
+    halo +
+    `<g transform="${tf}"><g class="flame-body"><path d="${FLAME_PATH}" fill="${bodyFill}"/><path d="${FLAME_PATH}" transform="translate(12,21) scale(.55) translate(-12,-21)" fill="${sil ? dark : "#FFDF9E"}" opacity="${sil ? 1 : 0.75}"/>` +
+    (sil ? "" : flameFace(st.face)) +
+    crown +
+    "</g></g>" +
+    sparks +
+    "</svg>"
+  );
+}
+
 function renderCollection(addr, best, claimedTiers, wins) {
   const wrap = $("pNFTs");
   wrap.innerHTML = "";
@@ -1731,8 +1826,7 @@ function renderCollection(addr, best, claimedTiers, wins) {
     const earned = best >= t.days;
     const claimed = claimedTiers.includes(t.tier);
     if (earned && t.nft && !claimed) claimable.push(t);
-    const el = document.createElement("div");
-    el.className = "badge-card" + (!earned ? " locked" : "");
+    const state = !earned ? "locked" : claimed || !t.nft ? "owned" : "claimable";
     const sub = !earned
       ? Tf("Locked · {n} days to go", { n: t.days - best })
       : t.nft
@@ -1740,28 +1834,44 @@ function renderCollection(addr, best, claimedTiers, wins) {
           ? T("Soulbound NFT · Owned ✓")
           : T("Soulbound NFT · Unlocked — claim by prompt below")
         : T("Milestone earned · Verified by the on-chain streak");
+    const el = document.createElement("div");
+    el.className = "nft-card r" + t.tier + " " + state;
     el.innerHTML =
-      '<div class="medal" style="background:' + (earned ? t.color : "#C9CED6") + '">' + flameSVG(true, 26) + "</div>" +
-      '<div class="bt">' + t.name + "</div>" +
-      '<div class="bs">' + Tf("{days}-day best streak", { days: t.days }) + "<br>" + sub + "</div>";
+      '<div class="nft-frame">' +
+      '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T(RARITIES[t.tier - 1])) + '</span><span class="nft-days">' + t.days + "d</span></div>" +
+      '<div class="nft-art">' + flameArt(t.tier, !earned) + "</div>" +
+      '<div class="nft-name">' + escapeHtml(t.name) + "</div>" +
+      '<div class="nft-stats">' + Tf("{days}-day best streak", { days: t.days }) + (t.nft ? " · NFT" : "") + "</div>" +
+      (!earned ? '<div class="nft-prog"><i style="width:' + Math.max(4, Math.min(100, Math.round((best / t.days) * 100))) + '%"></i></div>' : "") +
+      '<div class="nft-state">' + sub + "</div>" +
+      "</div>";
     wrap.appendChild(el);
   }
   for (const w of wins || []) {
     const el = document.createElement("div");
-    el.className = "badge-card";
+    el.className = "nft-card champ owned";
     const date = new Date(w.day * 86400000).toISOString().slice(0, 10);
     el.innerHTML =
-      '<div class="medal" style="background:#F0B90B">👑</div>' +
-      '<div class="bt">Top Report</div>' +
-      '<div class="bs">' + T("Won the daily wall vote") + "<br>" + Tf("Community collectible · {date}", { date }) + "</div>";
+      '<div class="nft-frame">' +
+      '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T("Champion")) + '</span><span class="nft-days">' + date + "</span></div>" +
+      '<div class="nft-art">' + flameArt(6, false) + "</div>" +
+      '<div class="nft-name">👑 Top Report</div>' +
+      (w.status ? '<div class="nft-quote">“' + escapeHtml(w.status) + '”</div>' : "") +
+      '<div class="nft-stats">' + (w.votes ? w.votes + " " + voteWord(w.votes) + " · " : "") + escapeHtml(T("Community collectible")) + "</div>" +
+      '<div class="nft-state">' + escapeHtml(T("Won the daily wall vote")) + "</div>" +
+      "</div>";
     wrap.appendChild(el);
   }
   const info = document.createElement("div");
-  info.className = "badge-card locked";
+  info.className = "nft-card champ locked";
   info.innerHTML =
-    '<div class="medal" style="background:#C9CED6">👑</div>' +
-    '<div class="bt">Top Report</div>' +
-    '<div class="bs">' + T("Win the daily wall vote to earn this collectible") + "<br>" + T("Reports with on-chain proof get the votes") + "</div>";
+    '<div class="nft-frame">' +
+    '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T("Champion")) + '</span><span class="nft-days">1 / day</span></div>' +
+    '<div class="nft-art">' + flameArt(6, true) + "</div>" +
+    '<div class="nft-name">👑 Top Report</div>' +
+    '<div class="nft-stats">' + escapeHtml(T("Reports with on-chain proof get the votes")) + "</div>" +
+    '<div class="nft-state">' + escapeHtml(T("Win the daily wall vote to earn this collectible")) + "</div>" +
+    "</div>";
   wrap.appendChild(info);
   const panel = $("claimPanel");
   if (claimable.length) {
@@ -1774,8 +1884,8 @@ function renderCollection(addr, best, claimedTiers, wins) {
 
 function demoVoteWins(addr) {
   const t = todayIndex();
-  if (lc(addr) === lc(demoUsers[2].address)) return [{ day: t }];
-  if (lc(addr) === lc(demoUsers[1].address)) return [{ day: t - 1 }];
+  if (lc(addr) === lc(demoUsers[2].address)) return [{ day: t, votes: demoUsers[2].votes || 9, status: demoUsers[2].status }];
+  if (lc(addr) === lc(demoUsers[1].address)) return [{ day: t - 1, votes: demoUsers[1].votes || 6, status: demoUsers[1].status }];
   return [];
 }
 
@@ -1789,7 +1899,7 @@ async function loadVoteWins(addr) {
       const data = await r.json();
       let bestAddr = null, bestCount = 0;
       for (const [a, c] of Object.entries(data.tallies || {})) if (c > bestCount) { bestCount = c; bestAddr = a; }
-      if (bestAddr && lc(bestAddr) === lc(addr)) wins.push({ day: d });
+      if (bestAddr && lc(bestAddr) === lc(addr)) wins.push({ day: d, votes: bestCount });
     } catch (_) {}
   }
   return wins;
