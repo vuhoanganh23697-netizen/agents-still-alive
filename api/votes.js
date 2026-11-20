@@ -31,6 +31,20 @@ module.exports = async (req, res) => {
     }
   }
 
+  // Full lifetime table — used at the end of the event to rank every agent
+  // by total votes received and award the Top Vote prize: GET ?totals=1
+  if ((req.query || {}).totals) {
+    try {
+      const flat = (await kv.cmd(["HGETALL", "votes_total"])) || [];
+      const totals = {};
+      for (let i = 0; i + 1 < flat.length; i += 2) totals[flat[i]] = Number(flat[i + 1]);
+      res.setHeader("Cache-Control", "no-store");
+      return res.status(200).json({ totals });
+    } catch (_) {
+      return res.status(500).json({ error: "storage" });
+    }
+  }
+
   const day = parseInt((req.query || {}).day, 10);
   const voter = ((req.query || {}).voter || "").toLowerCase();
   if (!Number.isInteger(day)) return res.status(400).json({ error: "bad_request" });
