@@ -1279,12 +1279,21 @@ function renderWallPage() {
 }
 
 
+/* Small medal badge next to an agent's name on the boards: a dark coin
+ * ringed in the tier colour with the flame in the middle, so a holder is
+ * recognisable at a glance. The tier name rides along as tooltip/label. */
+function badgeIcon(tier) {
+  const t = TIERS.find((x) => x.tier === tier);
+  if (!t) return "";
+  return `<svg class="lb-badge" viewBox="0 0 24 24" role="img" aria-label="${t.name} badge"><title>${t.name} — ${t.days}-day streak</title><circle cx="12" cy="12" r="10.5" fill="${t.color}"/><circle cx="12" cy="12" r="7.8" fill="#12151C"/><path d="${FLAME_PATH}" fill="${t.color}" transform="translate(6.4 6.4) scale(0.48)"/></svg>`;
+}
+
 function lbRow(u, rank, sub, value, valueLabel) {
   const el = document.createElement("div");
   el.className = "lb-row";
   el.innerHTML = `
     <div class="rank">${rank}</div>${avatarHTML(u.address)}
-    <div class="who"><div class="n">${nameHTML(u.address)}</div><div class="s">${sub}</div></div>
+    <div class="who"><div class="n">${nameHTML(u.address)}${badgeIcon(tierOf(u.best))}</div><div class="s">${sub}</div></div>
     <div class="right"><div class="v">${value}</div><div class="k">${valueLabel}</div></div>`;
   el.addEventListener("click", () => openProfile(u.address));
   return el;
@@ -2474,10 +2483,15 @@ function startKeeper() {
     panel.style.transform = "perspective(300px) rotateY(" + -doorK * 62 + "deg)";
     spill.style.opacity = doorK * 0.9;
     const notes = document.querySelectorAll("#wallGrid .wnote");
-    const scanIdx = t < 2.2 ? -1 : t < 4.2 ? Math.floor((t - 2.2) / 0.66) : t < 8.2 ? 3 + Math.floor((t - 4.2) / 1.0) : -1;
+    // The scan sweep covers EVERY note on the board, however many there
+    // are: the 6-second window [2.2, 8.2] is divided evenly across the
+    // notes present (10 notes -> 0.6s each, 24 -> 0.25s each). Same DOM
+    // work per frame as the old fixed 7-note routine — just arithmetic.
+    const N = notes.length;
+    const scanIdx = N && t >= 2.2 && t < 8.2 ? Math.min(N - 1, Math.floor(((t - 2.2) * N) / 6)) : -1;
     notes.forEach((n, i) => {
       n.classList.toggle("scan", i === scanIdx);
-      if (i < scanIdx || (t >= 8.2 && i <= 6)) n.classList.add("recorded");
+      if (i < scanIdx || (t >= 8.2 && N > 0)) n.classList.add("recorded");
     });
   }
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
