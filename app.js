@@ -99,6 +99,8 @@ const knownUsers = new Map(); // addr -> {days:Set, best, badges:Set, pokes, pok
 let dbTotalSigns = 0;
 let profileAddress = null;
 let dirFilter = "all";
+let rcPage = 0;
+const RC_PAGE_SIZE = 10;
 
 /* ------------------------------ utils ------------------------------ */
 const $ = (id) => document.getElementById(id);
@@ -334,6 +336,10 @@ const VI = {
  "Total signs": "Tổng lượt ký",
  "Votes today": "Phiếu hôm nay",
  "Lifetime votes": "Tổng phiếu",
+ "Page {x} of {y}": "Trang {x} / {y}",
+ "Prev": "Trước",
+ "Next": "Sau",
+ "{n} agents": "{n} agent",
  "StillAlive NFT collection": "Bộ sưu tập NFT StillAlive",
  "Streak NFTs are soulbound, minted on-chain by the StillAlive contract. 👑 Top Report is a community collectible recorded by the wall's vote system — win the daily vote with a proof-backed report to earn it.": "NFT chuỗi là soulbound, được đúc on-chain bởi hợp đồng StillAlive. 👑 Top Report là vật phẩm sưu tầm cộng đồng do hệ thống bình chọn của tường ghi lại — hãy thắng bình chọn ngày bằng một báo cáo có bằng chứng để nhận nó.",
  "Claim with your agent — by prompt": "Nhận bằng agent của bạn — qua prompt",
@@ -363,7 +369,7 @@ function loc() { return LANG === "vi" ? "vi-VN" : "en-US"; }
 function voteWord(n) { return LANG === "vi" ? "phiếu" : n === 1 ? "vote" : "votes"; }
 const _origText = new WeakMap();
 const _origPh = new WeakMap();
-const I18N_SKIP = "script, style, textarea, #wallGrid, #dirGrid, #vipList, #topList, #pNFTs, #pReports, #toast, #dayPills";
+const I18N_SKIP = "script, style, textarea, #wallGrid, #dirGrid, #rcPager, #vipList, #topList, #pNFTs, #pReports, #toast, #dayPills";
 function applyStatic() {
   document.documentElement.lang = LANG === "vi" ? "vi" : "en";
   document.title = T("StillAlive — Is your agent still alive today?");
@@ -1464,19 +1470,50 @@ function renderDirectory() {
   }
   const att = (e) => [...e.week.values()].filter(Boolean).length;
   entries.sort((a, b) => att(b) - att(a) || b.best - a.best || displayName(a.address).localeCompare(displayName(b.address)));
-  let shown = 0;
-  for (const u of entries) {
+  const visible = entries.filter((u) => {
     const name = DEMO ? u.name : displayName(u.address);
-    if (dirFilter === "alive" && !u.alive) continue;
-    if (dirFilter === "badges" && tierOf(u.best, u.badges) === 0) continue;
-    if (q && !lc(name).includes(q) && !lc(name).includes(q.replace(/\.ai$/, "")) && !addrMatchesQuery(u.address, q)) continue;
-    grid.appendChild(rcRow(u));
-    shown++;
-    if (shown >= 48) break;
-  }
-  $("dirEmpty").hidden = shown !== 0;
+    if (dirFilter === "alive" && !u.alive) return false;
+    if (dirFilter === "badges" && tierOf(u.best, u.badges) === 0) return false;
+    if (q && !lc(name).includes(q) && !lc(name).includes(q.replace(/\.ai$/, "")) && !addrMatchesQuery(u.address, q)) return false;
+    return true;
+  });
+  const pages = Math.max(1, Math.ceil(visible.length / RC_PAGE_SIZE));
+  if (rcPage >= pages) rcPage = pages - 1;
+  if (rcPage < 0) rcPage = 0;
+  for (const u of visible.slice(rcPage * RC_PAGE_SIZE, rcPage * RC_PAGE_SIZE + RC_PAGE_SIZE)) grid.appendChild(rcRow(u));
+  $("dirEmpty").hidden = visible.length !== 0;
+  renderRcPager(visible.length, pages);
   resolveNames(entries.map((e) => e.address));
   loadRollCallData(entries);
+}
+
+/* Roll Call pagination — 10 agents per page; the pager hides itself when
+ * everything fits on one page. Search/filter changes reset rcPage to 0
+ * in their handlers; data refreshes keep the current page (clamped). */
+function renderRcPager(total, pages) {
+  const box = $("rcPager");
+  if (!box) return;
+  if (total <= RC_PAGE_SIZE) {
+    box.hidden = true;
+    box.innerHTML = "";
+    return;
+  }
+  box.hidden = false;
+  box.innerHTML = "";
+  const prev = document.createElement("button");
+  prev.className = "btn ghost small";
+  prev.textContent = "‹ " + T("Prev");
+  prev.disabled = rcPage <= 0;
+  prev.addEventListener("click", () => { rcPage--; renderDirectory(); });
+  const mid = document.createElement("span");
+  mid.className = "rc-pageinfo mono";
+  mid.textContent = Tf("Page {x} of {y}", { x: rcPage + 1, y: pages }) + " · " + Tf("{n} agents", { n: total });
+  const next = document.createElement("button");
+  next.className = "btn ghost small";
+  next.textContent = T("Next") + " ›";
+  next.disabled = rcPage >= pages - 1;
+  next.addEventListener("click", () => { rcPage++; renderDirectory(); });
+  box.append(prev, mid, next);
 }
 
 function rcRow(u) {
@@ -2584,12 +2621,13 @@ function bindUI() {
     const n = DEMO ? (demoUsers.find((u) => lc(u.address) === lc(profileAddress)) || {}).name || "An agent" : displayName(profileAddress);
     shareOnX(Tf("🔥 {name} is proving it is alive — every day, on-chain — on StillAlive. Check the proof: {url}", { name: n, url: location.origin + location.pathname }));
   });
-  $("dirSearch").addEventListener("input", renderDirectory);
+  $("dirSearch").addEventListener("input", () => { rcPage = 0; renderDirectory(); });
   $("dirFilters").querySelectorAll(".chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       $("dirFilters").querySelectorAll(".chip").forEach((c) => c.classList.remove("on"));
       chip.classList.add("on");
       dirFilter = chip.getAttribute("data-f");
+      rcPage = 0;
       renderDirectory();
     });
   });

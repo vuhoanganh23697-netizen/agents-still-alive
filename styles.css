@@ -274,10 +274,21 @@ footer{background:var(--ink);color:#fff;margin-top:60px}
 #claimPrompt{width:100%;border:2px solid var(--line,#EAECEF);border-radius:12px;padding:12px 13px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.8px;line-height:1.55;background:#0B0E11;color:#EAECEF;resize:vertical;margin-bottom:12px}
 
 a.wallet-btn{text-decoration:none;display:inline-block}
-.sign-locked-inner .idcard-wrap{display:block;padding:4px 0 2px;margin-bottom:8px;perspective:700px;animation:idbob 3.8s ease-in-out infinite}
+.sign-locked-inner .idcard-wrap{display:block;padding:4px 0 2px;margin:20px 0 64px;perspective:700px;animation:idbob 3.8s ease-in-out infinite}
 @keyframes idbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
-.idcard-tilt{position:relative;display:block;width:fit-content;margin:0 auto;transform-style:preserve-3d;will-change:transform}
-.idcard-img{display:block;width:188px;max-width:66%;height:auto;filter:drop-shadow(0 16px 26px rgba(240,185,11,.5))}
+.idcard-tilt{position:relative;display:block;width:min(188px,60vw);margin:0 auto;transform-style:preserve-3d;will-change:transform}
+.idcard-img{position:relative;display:block;width:100%;height:auto;filter:drop-shadow(0 16px 26px rgba(240,185,11,.5))}
+/* Fanned deck behind the main card — same Agent ID card, spread like a hand
+ * of cards from a pivot near the bottom; opens wider while hovering. */
+.idcard-fan{position:absolute;left:0;top:0;width:100%;height:auto;pointer-events:none;transform-origin:50% 88%;transition:transform .5s cubic-bezier(.2,.8,.3,1.15)}
+.fan-l2{transform:rotate(-21deg) translateY(4px) translateZ(-2px);filter:brightness(.74) drop-shadow(0 8px 14px rgba(240,185,11,.3))}
+.fan-l1{transform:rotate(-10.5deg) translateY(2px) translateZ(-1px);filter:brightness(.88) drop-shadow(0 10px 16px rgba(240,185,11,.35))}
+.fan-r1{transform:rotate(10.5deg) translateY(2px) translateZ(-1px);filter:brightness(.88) drop-shadow(0 10px 16px rgba(240,185,11,.35))}
+.fan-r2{transform:rotate(21deg) translateY(4px) translateZ(-2px);filter:brightness(.74) drop-shadow(0 8px 14px rgba(240,185,11,.3))}
+.idcard-wrap:hover .fan-l2,.idcard-wrap.hovering .fan-l2{transform:rotate(-33deg) translateY(-3px) translateZ(-2px)}
+.idcard-wrap:hover .fan-l1,.idcard-wrap.hovering .fan-l1{transform:rotate(-17deg) translateY(-2px) translateZ(-1px)}
+.idcard-wrap:hover .fan-r1,.idcard-wrap.hovering .fan-r1{transform:rotate(17deg) translateY(-2px) translateZ(-1px)}
+.idcard-wrap:hover .fan-r2,.idcard-wrap.hovering .fan-r2{transform:rotate(33deg) translateY(-3px) translateZ(-2px)}
 .idcard-glare{position:absolute;inset:0;opacity:0;transition:opacity .3s;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.38),rgba(255,255,255,0) 55%);-webkit-mask-image:url(assets/agent-id-card.png);mask-image:url(assets/agent-id-card.png);-webkit-mask-size:contain;mask-size:contain;-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;pointer-events:none}
 .idcard-wrap.hovering .idcard-glare{opacity:1}
 .idcard-wrap.hovering{animation-play-state:paused}
@@ -344,6 +355,9 @@ a.wallet-btn{text-decoration:none;display:inline-block}
 
 /* The Roll Call (replaces the Directory grid) */
 .rc-list{display:flex;flex-direction:column;gap:12px}
+.rc-pager{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:16px}
+.rc-pager .rc-pageinfo{font-size:12.5px;font-weight:700;color:var(--mut)}
+.rc-pager .btn[disabled]{opacity:.35;pointer-events:none}
 .rc-row{background:#fff;border:2.5px solid var(--ink);border-radius:19px;box-shadow:6px 6px 0 var(--ink);padding:14px 16px;display:grid;grid-template-columns:250px auto 1fr;gap:8px 18px;align-items:center;cursor:pointer;transition:transform .08s}
 .rc-row:hover{transform:translate(-1px,-1px)}
 .rc-id{display:flex;align-items:center;gap:10px;min-width:0}
