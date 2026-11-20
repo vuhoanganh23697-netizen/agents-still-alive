@@ -6,7 +6,8 @@
  *   - any wallet may vote (no Agent ID needed — product decision 2026-11-19);
  *     isHolder() below is kept only as a utility and is no longer enforced
  *   - the candidate must have signed the wall that day (hasSignedOn)
- *   - one vote per voter per day, no self-votes, no switching
+ *   - up to 3 votes per voter per day, each for a different agent;
+ *     no self-votes, no switching
  * Authentication is a wallet signature (EIP-191) over a fixed message, so a
  * vote costs no gas and can only come from the wallet's owner.
  *

@@ -50,21 +50,28 @@ module.exports = async (req, res) => {
 
   // Any wallet may vote (product decision 2026-11-19) — no Agent ID needed.
   // The remaining gates: valid signature, no self-vote, the candidate must
-  // have signed that day, and one vote per wallet per day (HSETNX below).
+  // have signed that day, and up to 3 votes per wallet per day — each for a
+  // different agent (product decision 2026-11-20). The voter's picks live in
+  // voted:<day> as a comma-separated list (older 1-vote values read as a
+  // one-item list, so the change is backward compatible).
   if (!(await hasSignedOn(candidate, day))) return res.status(403).json({ error: "not_signed" });
 
   const voterLc = voter.toLowerCase();
   const candidateLc = candidate.toLowerCase();
   try {
-    const first = await kv.cmd(["HSETNX", "voted:" + day, voterLc, candidateLc]);
-    if (first !== 1) return res.status(409).json({ error: "already_voted" });
+    const raw = await kv.cmd(["HGET", "voted:" + day, voterLc]);
+    const mine = raw ? String(raw).split(",").filter(Boolean) : [];
+    if (mine.includes(candidateLc)) return res.status(409).json({ error: "already_voted" });
+    if (mine.length >= 3) return res.status(409).json({ error: "vote_limit" });
+    mine.push(candidateLc);
+    await kv.cmd(["HSET", "voted:" + day, voterLc, mine.join(",")]);
     const count = await kv.cmd(["HINCRBY", "votes:" + day, candidateLc, 1]);
     // Lifetime tally for the Top Report NFT (10 total votes) — never expires.
     await kv.cmd(["HINCRBY", "votes_total", candidateLc, 1]).catch(() => {});
     // Best-effort tidy-up: tallies only matter for their own day.
     kv.cmd(["EXPIRE", "votes:" + day, 60 * 60 * 24 * 4]).catch(() => {});
     kv.cmd(["EXPIRE", "voted:" + day, 60 * 60 * 24 * 4]).catch(() => {});
-    return res.status(200).json({ ok: true, candidate: candidateLc, votes: count });
+    return res.status(200).json({ ok: true, candidate: candidateLc, votes: count, votesLeft: 3 - mine.length });
   } catch (_) {
     return res.status(500).json({ error: "storage" });
   }

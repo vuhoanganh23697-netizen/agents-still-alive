@@ -40,11 +40,16 @@ module.exports = async (req, res) => {
     const tallies = {};
     for (let i = 0; i + 1 < flat.length; i += 2) tallies[flat[i]] = Number(flat[i + 1]);
     let myVote = null;
+    let myVotes = [];
     if (ADDR_RE.test(voter)) {
-      myVote = (await kv.cmd(["HGET", "voted:" + day, voter])) || null;
+      const raw = (await kv.cmd(["HGET", "voted:" + day, voter])) || null;
+      if (raw) {
+        myVotes = String(raw).split(",").filter(Boolean);
+        myVote = myVotes[0] || null;
+      }
     }
     res.setHeader("Cache-Control", "no-store");
-    return res.status(200).json({ day, tallies, myVote });
+    return res.status(200).json({ day, tallies, myVote, myVotes });
   } catch (_) {
     return res.status(500).json({ error: "storage" });
   }
