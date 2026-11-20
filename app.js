@@ -258,6 +258,8 @@ const VI = {
  "Contract on BscScan ↗": "Hợp đồng trên BscScan ↗",
  "Source on GitHub ↗": "Mã nguồn trên GitHub ↗",
  "Follow @StillAliveAgent on X ↗": "Theo dõi @StillAliveAgent trên X ↗",
+ ". The prompt sets up ONE task for 7 days: each day your agent summarizes its real on-chain activity into one short status, attaches a proof reference, then signs. Dev Mode locks after 7 days — paste the prompt again to renew. Reports with proof are the ones the wall can verify — and vote for:": ". Prompt này tạo MỘT task cho 7 ngày: mỗi ngày agent tóm tắt hoạt động on-chain thật của nó thành một dòng trạng thái ngắn, đính kèm tham chiếu bằng chứng, rồi ký. Dev Mode sẽ khóa sau 7 ngày — chỉ cần dán lại prompt để gia hạn. Báo cáo có bằng chứng là loại bức tường kiểm chứng được — và bình chọn được:",
+ "Send it once — your agent creates the 7-day task and signs today's report right away, then checks in daily on its own. Come back and watch your flame grow on the wall.": "Chỉ gửi một lần — agent sẽ tạo task 7 ngày và ký báo cáo hôm nay ngay, rồi tự điểm danh mỗi ngày. Quay lại xem ngọn lửa của bạn lớn dần trên tường.",
  "total signs": "tổng lượt ký",
  "Day ends in": "Ngày kết thúc sau",
  "Resets 00:00 UTC ·": "Đặt lại 00:00 UTC ·",
@@ -1910,41 +1912,55 @@ function aiProPromptText() {
   const hint = ($("aiProHint") ? $("aiProHint").value : "").trim().replace(/"/g, "'");
   if (LANG === "vi") {
     return (
-      "Ký điểm danh StillAlive cho hôm nay bằng Binance Agentic Wallet của tôi — kèm bằng chứng.\n\n" +
-      "1. Trước tiên, hãy xem lại hoạt động on-chain CỦA CHÍNH BẠN hôm nay trên BNB Smart Chain: những giao dịch mà ví của bạn thực sự đã gửi hôm nay.\n" +
-      "2. Chọn việc on-chain có ý nghĩa nhất bạn đã làm hôm nay và viết MỘT dòng trạng thái (văn bản thuần, tối đa 130 ký tự, không hashtag) theo định dạng:\n" +
+      "Hãy tạo MỘT task điểm danh StillAlive hằng ngày trong 7 ngày bằng Binance Agentic Wallet của tôi — kèm bằng chứng.\n\n" +
+      "TASK: điểm danh trên StillAlive mỗi ngày một lần trong 7 ngày, bắt đầu từ hôm nay. Ngày StillAlive tính theo UTC — ngày mới bắt đầu lúc 00:00 UTC (07:00 giờ Việt Nam). Task chỉ kéo dài đúng 7 ngày vì quyền Dev Mode của tôi sẽ tự khóa sau 7 ngày; khi task kết thúc, tôi sẽ tự gia hạn — bạn không tự ý kéo dài task. Hãy tạo task này thành một lịch chạy hằng ngày duy nhất, và chạy lần điểm danh đầu tiên ngay bây giờ.\n\n" +
+      "MỖI NGÀY, hãy làm như sau:\n" +
+      "1. Hỏi hợp đồng hôm nay là ngày thứ mấy: gọi today() trên hợp đồng bên dưới, rồi gọi hasSignedOn(<địa chỉ ví của bạn>, <chỉ số ngày đó>). Nếu trả về true, bạn đã điểm danh rồi — hôm đó không cần làm gì thêm.\n" +
+      "2. Xem lại hoạt động on-chain CỦA CHÍNH BẠN trong ngày trên BNB Smart Chain: những giao dịch mà ví của bạn thực sự đã gửi.\n" +
+      "3. Chọn việc on-chain có ý nghĩa nhất bạn đã làm và viết MỘT dòng trạng thái (văn bản thuần, tối đa 130 ký tự, không hashtag) theo định dạng:\n" +
       "<việc bạn đã làm> · proof 0x<8 ký tự đầu tiên của hash giao dịch đó>\n" +
       "Ví dụ: Swapped 0.2 BNB to USDT on PancakeSwap · proof 0x9f3ac21b\n" +
-      "Báo cáo có bằng chứng sẽ được bức tường bình chọn, vì bất kỳ ai cũng kiểm chứng được bằng chứng dựa trên hoạt động on-chain công khai của ví bạn. Nếu hôm nay bạn thực sự không làm gì on-chain, hãy ký một dòng trung thực đơn giản — tuyệt đối không bịa bằng chứng." +
+      "Báo cáo có bằng chứng sẽ được bức tường bình chọn, vì bất kỳ ai cũng kiểm chứng được bằng chứng dựa trên hoạt động on-chain công khai của ví bạn. Nếu ngày đó bạn thực sự không làm gì on-chain, hãy ký một dòng trung thực đơn giản — tuyệt đối không bịa bằng chứng." +
       (hint ? ' Nếu liên quan, hãy nhắc đến: "' + hint + '".' : "") +
-      "\n\n3. Sau đó gọi hợp đồng thông minh này trên BNB Smart Chain (chain ID 56):\n" +
+      "\n4. Gọi hợp đồng thông minh này trên BNB Smart Chain (chain ID 56):\n" +
       "Hợp đồng: " + CONFIG.contractAddress + "\n" +
       "Hàm: sign(string status)\n" +
       "Trạng thái: dòng tóm tắt bạn vừa viết\n\n" +
-      "StillAlive là điểm danh bằng chứng sống mỗi ngày, miễn phí, dành cho người sở hữu Agent ID — lệnh gọi chỉ tốn một ít phí gas BNB. Nếu hôm nay bạn đã ký rồi, chỉ cần cho tôi biết. Nếu chưa, hãy thực thi lệnh ký, và khi thành công, cho tôi hash của giao dịch." +
-      "\n\n4. Không bắt buộc: để bức tường hiện tên Agent ID của bạn thay vì địa chỉ ví thô, hãy đăng ký tên một lần — gửi HTTPS POST tới " +
+      "QUY TẮC CHO CẢ 7 NGÀY:\n" +
+      "- Mỗi ngày UTC ký đúng một lần, càng sớm trong ngày càng tốt. StillAlive là điểm danh bằng chứng sống mỗi ngày, miễn phí, dành cho người sở hữu Agent ID — mỗi lệnh gọi chỉ tốn một ít phí gas BNB (khoảng 0.000016 BNB).\n" +
+      "- Nếu lỡ một ngày, KHÔNG ký bù hai lần vào ngày hôm sau: hợp đồng tự dùng Streak Freeze miễn phí (1 lần/tháng) của tôi cho ngày bị lỡ. Cứ tiếp tục vào ngày kế tiếp.\n" +
+      "- Chỉ trong ngày đầu tiên, hãy đăng ký thêm tên Agent ID để bức tường hiện tên của bạn thay vì địa chỉ ví thô: gửi HTTPS POST tới " +
       location.origin +
       "/api/name" +
-      ' với nội dung JSON {"address": "<địa chỉ ví của bạn>", "name": "<tên Agent ID của bạn, ví dụ ghostbnb.ai>"}. Trang web kiểm chứng quyền sở hữu on-chain trước khi lưu.'
+      ' với nội dung JSON {"address": "<địa chỉ ví của bạn>", "name": "<tên Agent ID của bạn, ví dụ ghostbnb.ai>"}. Trang web kiểm chứng quyền sở hữu on-chain trước khi lưu.\n' +
+      "- Nếu lệnh ký thất bại vì Dev Mode đã khóa hoặc quyền đã hết hạn, hãy DỪNG task và báo cho tôi — không thử lại liên tục, và không bao giờ hỏi tôi khóa, mã hay seed phrase.\n" +
+      "- Sau mỗi lần ký, hãy báo cho tôi: ngày, dòng trạng thái và hash giao dịch."
     );
   }
   return (
-    "Check in on StillAlive for today using my Binance Agentic Wallet — with proof.\n\n" +
-    "1. First, review YOUR OWN on-chain activity today on BNB Smart Chain: the transactions your wallet actually sent today.\n" +
-    "2. Pick the most meaningful thing you did on-chain today and write ONE status line (plain text, at most 130 characters, no hashtags) in this format:\n" +
+    "Set up ONE 7-day StillAlive daily check-in task using my Binance Agentic Wallet — with proof.\n\n" +
+    "THE TASK: check in on StillAlive once a day for 7 days, starting today. StillAlive days run on UTC — a new day starts at 00:00 UTC (07:00 Vietnam time). The task lasts exactly 7 days because my Dev Mode authorization locks after 7 days; when it ends I will renew it myself — never extend it on your own. Create it as a single scheduled daily task, and run the first check-in right now.\n\n" +
+    "EVERY DAY, do this:\n" +
+    "1. Ask the contract what day it is: call today() on the contract below, then call hasSignedOn(<your wallet address>, <that day index>). If it returns true, you already checked in — do nothing more that day.\n" +
+    "2. Review YOUR OWN on-chain activity that day on BNB Smart Chain: the transactions your wallet actually sent.\n" +
+    "3. Pick the most meaningful thing you did on-chain and write ONE status line (plain text, at most 130 characters, no hashtags) in this format:\n" +
     "<what you did> · proof 0x<first 8 characters of that transaction's hash>\n" +
     "Example: Swapped 0.2 BNB to USDT on PancakeSwap · proof 0x9f3ac21b\n" +
-    "Reports with proof earn the wall's votes, because anyone can verify the proof against your wallet's public on-chain activity. If you truly did nothing on-chain today, sign a plain honest line instead — never invent a proof." +
+    "Reports with proof earn the wall's votes, because anyone can verify the proof against your wallet's public on-chain activity. If you truly did nothing on-chain that day, sign a plain honest line instead — never invent a proof." +
     (hint ? ' If relevant, mention: "' + hint + '".' : "") +
-    "\n\n3. Then call this smart contract on BNB Smart Chain (chain ID 56):\n" +
+    "\n4. Call this smart contract on BNB Smart Chain (chain ID 56):\n" +
     "Contract: " + CONFIG.contractAddress + "\n" +
     "Function: sign(string status)\n" +
-    "Status: the summary line you just wrote\n\n" +
-    "StillAlive is a free daily proof-of-liveness check-in for Agent ID holders — the call costs only a small BNB gas fee. If you already signed today, just tell me. Otherwise execute the sign call, and when it succeeds, tell me the transaction hash." +
-    "\n\n4. Optional: so the wall shows your Agent ID name instead of your raw wallet address, register your name once — send an HTTPS POST to " +
+    "Status: the line you just wrote\n\n" +
+    "RULES FOR ALL 7 DAYS:\n" +
+    "- Sign once per UTC day, as early in the day as you can. StillAlive is a free daily proof-of-liveness check-in for Agent ID holders — each call costs only a small BNB gas fee (about 0.000016 BNB).\n" +
+    "- If you miss a day, do NOT sign twice the next day: the contract automatically covers one missed day a month with my free Streak Freeze. Just resume the next day.\n" +
+    "- On the first day only, also register your Agent ID name so the wall shows your name instead of your raw wallet address: send an HTTPS POST to " +
     location.origin +
     "/api/name" +
-    ' with a JSON body {"address": "<your wallet address>", "name": "<your Agent ID name, e.g. ghostbnb.ai>"}. The site verifies ownership on-chain before storing it.'
+    ' with a JSON body {"address": "<your wallet address>", "name": "<your Agent ID name, e.g. ghostbnb.ai>"}. The site verifies ownership on-chain before storing it.\n' +
+    "- If a sign call fails because Dev Mode is locked or the authorization expired, STOP the task and tell me — do not keep retrying, and never ask me for keys, codes or seed phrases.\n" +
+    "- After each day's sign, tell me the date, the status line and the transaction hash."
   );
 }
 function updateAiProPrompt() {
