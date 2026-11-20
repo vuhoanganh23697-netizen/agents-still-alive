@@ -1114,13 +1114,13 @@ async function loadLifetimeStats() {
 }
 
 async function userDetail(addr) {
-  if (userDetails.has(addr)) return userDetails.get(addr);
+  if (userDetails.has(lc(addr))) return userDetails.get(lc(addr));
   const t = Number(await contractRO.today());
   const [status, streak] = await Promise.all([contractRO.statusOf(t, addr), contractRO.getStreak(addr)]);
   const best = Number(streak[1]);
   const top = tierOf(best);
   const d = { status, current: Number(streak[0]), best, topTier: top, badges: TIERS.filter((x) => best >= x.days).map((x) => x.tier) };
-  userDetails.set(addr, d);
+  userDetails.set(lc(addr), d);
   const ku = ensureUser(addr);
   ku.best = Math.max(ku.best, d.best);
   for (const b of d.badges) ku.badges.add(b);
@@ -1308,7 +1308,7 @@ function renderLeaderboard() {
     }
     for (const addr of todayList) {
       if (!entries.find((e) => lc(e.address) === lc(addr))) {
-        const d = userDetails.get(addr);
+        const d = userDetails.get(lc(addr));
         entries.push({ address: addr, best: d ? d.best : 0, badges: d ? d.badges : [], current: d ? d.current : 0 });
       }
     }
@@ -1353,7 +1353,7 @@ async function refreshStreaks() {
             ku.best = best;
             changed = true;
           }
-          const d = userDetails.get(addr);
+          const d = userDetails.get(lc(addr));
           if (d) {
             if (d.best !== best) {
               d.best = best;
@@ -1427,7 +1427,7 @@ function renderDirectory() {
     }
     for (const addr of todayList) {
       if (!seen.has(lc(addr))) {
-        const d = userDetails.get(addr);
+        const d = userDetails.get(lc(addr));
         const week = blankWeek();
         week.set(t, true);
         seen.set(lc(addr), { address: addr, current: d ? d.current : 0, best: d ? d.best : 0, badges: d ? d.badges : [], week, freeze: new Set(), lastDay: t, lastStatus: d ? d.status : "", alive: true });
@@ -1446,10 +1446,16 @@ function renderDirectory() {
         e.lastStatus = c.lastStatus;
         if (c.current) e.current = c.current;
       }
-      const d = userDetails.get(e.address);
+      const d = userDetails.get(lc(e.address));
       if (d) {
         e.current = d.current;
         if (d.best > e.best) e.best = d.best;
+        // userDetails holds TODAY's summary — a signer today has a report.
+        if (d.status) {
+          e.lastStatus = d.status;
+          e.lastDay = t;
+          e.week.set(t, true);
+        }
       }
       if (e.week.get(t)) e.alive = true;
     }
@@ -1507,6 +1513,17 @@ function rcRow(u) {
   return el;
 }
 
+/* One RPC call with a single retry — the public BSC endpoint drops calls
+ * under burst load, and a dropped call must not poison the whole row. */
+async function callWithRetry(fn) {
+  try {
+    return await fn();
+  } catch (_) {
+    await new Promise((r) => setTimeout(r, 900));
+    return await fn();
+  }
+}
+
 async function loadRollCallData(entries) {
   if (DEMO || !DEPLOYED || !contractRO || rcFetching) return;
   const t = todayIndex();
@@ -1521,31 +1538,32 @@ async function loadRollCallData(entries) {
   let failures = 0;
   try {
     let changed = false;
-    await Promise.all(
-      todo.map(async (e) => {
-        try {
-          const addr = e.address;
-          const week = new Map();
-          await Promise.all(rcWeekDays().map(async (d) => week.set(d, await contractRO.hasSignedOn(addr, d))));
-          const s = await contractRO.getUserSummary(addr);
-          const lastDay = Number(s.lastSignDay_);
-          let lastStatus = "";
-          if (lastDay > 0) lastStatus = await contractRO.statusOf(lastDay, addr);
-          const sig = [...week.values()].join() + "|" + lastDay + "|" + lastStatus;
-          const prev = rcCache.get(lc(addr));
-          if (!prev || prev.sig !== sig) changed = true;
-          rcCache.set(lc(addr), { weekStart: t - 6, week, lastDay, lastStatus, current: Number(s.currentStreak), loadedAt: Date.now(), sig });
-          const ku = ensureUser(addr);
-          if (Number(s.bestStreak) > ku.best) ku.best = Number(s.bestStreak);
-        } catch (_) {
-          failures++;
-        }
-      })
-    );
+    // Agents are processed one at a time: firing every agent's week of
+    // hasSignedOn calls at once (45+ requests) makes the public RPC drop
+    // most of them, which is why the rows used to stay blank forever.
+    for (const e of todo) {
+      const addr = e.address;
+      try {
+        const week = new Map();
+        await Promise.all(rcWeekDays().map(async (d) => week.set(d, await callWithRetry(() => contractRO.hasSignedOn(addr, d)))));
+        const s = await callWithRetry(() => contractRO.getUserSummary(addr));
+        const lastDay = Number(s.lastSignDay_);
+        let lastStatus = "";
+        if (lastDay > 0) lastStatus = await callWithRetry(() => contractRO.statusOf(lastDay, addr));
+        const sig = [...week.values()].join() + "|" + lastDay + "|" + lastStatus;
+        const prev = rcCache.get(lc(addr));
+        if (!prev || prev.sig !== sig) changed = true;
+        rcCache.set(lc(addr), { weekStart: t - 6, week, lastDay, lastStatus, current: Number(s.currentStreak), loadedAt: Date.now(), sig });
+        const ku = ensureUser(addr);
+        if (Number(s.bestStreak) > ku.best) ku.best = Number(s.bestStreak);
+      } catch (_) {
+        failures++;
+      }
+    }
     if (changed) renderDirectory();
-    if (failures && rcRetries < 3) {
+    if (failures && rcRetries < 6) {
       rcRetries++;
-      setTimeout(() => loadRollCallData(entries), 15000);
+      setTimeout(() => loadRollCallData(entries), 20000);
     } else if (!failures) {
       rcRetries = 0;
     }
