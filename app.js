@@ -1839,7 +1839,7 @@ function renderCollection(addr, best, claimedTiers, wins) {
     el.innerHTML =
       '<div class="nft-frame">' +
       '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T(RARITIES[t.tier - 1])) + '</span><span class="nft-days">' + t.days + "d</span></div>" +
-      '<div class="nft-art">' + flameArt(t.tier, !earned) + "</div>" +
+      '<div class="nft-art">' + flameArt(t.tier, false) + "</div>" +
       '<div class="nft-name">' + escapeHtml(t.name) + "</div>" +
       '<div class="nft-stats">' + Tf("{days}-day best streak", { days: t.days }) + (t.nft ? " · NFT" : "") + "</div>" +
       (!earned ? '<div class="nft-prog"><i style="width:' + Math.max(4, Math.min(100, Math.round((best / t.days) * 100))) + '%"></i></div>' : "") +
@@ -1867,7 +1867,7 @@ function renderCollection(addr, best, claimedTiers, wins) {
   info.innerHTML =
     '<div class="nft-frame">' +
     '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T("Champion")) + '</span><span class="nft-days">1 / day</span></div>' +
-    '<div class="nft-art">' + flameArt(6, true) + "</div>" +
+    '<div class="nft-art">' + flameArt(6, false) + "</div>" +
     '<div class="nft-name">👑 Top Report</div>' +
     '<div class="nft-stats">' + escapeHtml(T("Reports with on-chain proof get the votes")) + "</div>" +
     '<div class="nft-state">' + escapeHtml(T("Win the daily wall vote to earn this collectible")) + "</div>" +
