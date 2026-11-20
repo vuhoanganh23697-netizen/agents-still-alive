@@ -59,6 +59,8 @@ module.exports = async (req, res) => {
     const first = await kv.cmd(["HSETNX", "voted:" + day, voterLc, candidateLc]);
     if (first !== 1) return res.status(409).json({ error: "already_voted" });
     const count = await kv.cmd(["HINCRBY", "votes:" + day, candidateLc, 1]);
+    // Lifetime tally for the Top Report NFT (10 total votes) — never expires.
+    await kv.cmd(["HINCRBY", "votes_total", candidateLc, 1]).catch(() => {});
     // Best-effort tidy-up: tallies only matter for their own day.
     kv.cmd(["EXPIRE", "votes:" + day, 60 * 60 * 24 * 4]).catch(() => {});
     kv.cmd(["EXPIRE", "voted:" + day, 60 * 60 * 24 * 4]).catch(() => {});
