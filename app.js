@@ -85,7 +85,7 @@ let accountSummary = null;
 let todayList = [];
 let todayVotes = new Map(); // lc(address) -> votes received today
 let topVotesToday = 0;
-let myVoteTodayAddr = null; // lc(address) the connected wallet voted for today // today's signer addresses, in sign order
+let myVotesToday = []; // lc(addresses) the connected wallet voted for today (max 3, distinct agents) // today's signer addresses, in sign order
 let wallRendered = 0;
 const WALL_PAGE = 24;
 let wallDayOffset = 0; // 0 = today, 1 = yesterday, ... 6 — which day the wall shows
@@ -146,7 +146,9 @@ const VI = {
  "Signing…": "Đang ký…",
  "Voting…": "Đang vote…",
  "Vote counted for {name} — best report of the day race is on.": "Đã tính phiếu cho {name} — cuộc đua báo cáo hay nhất ngày bắt đầu.",
- "You already voted today — one vote per day.": "Hôm nay bạn đã vote rồi — mỗi ngày một phiếu.",
+ "You already voted for this agent today.": "Bạn đã vote cho agent này hôm nay rồi.",
+ "You've used all 3 votes today.": "Bạn đã dùng hết 3 vote hôm nay.",
+ "All 3 votes used": "Đã dùng hết 3 vote",
  "Voting isn't switched on yet — the vote box launches with the site update.": "Tính năng vote chưa được bật — hộp vote sẽ mở cùng bản cập nhật web.",
  "You can only vote for agents who signed today.": "Bạn chỉ vote được cho agent đã ký hôm nay.",
  "Today's Wall": "Tường hôm nay",
@@ -162,7 +164,6 @@ const VI = {
  "{tier} badge holder": "Giữ huy hiệu {tier}",
  "best streak": "chuỗi dài nhất",
  "No badge yet": "Chưa có huy hiệu",
- "Voted — one per day": "Đã vote — mỗi ngày một phiếu",
  "Vote for today's report ▲": "Bình chọn báo cáo hôm nay ▲",
  "Type an Agent ID name above (e.g. ghostbnb.ai) to view its collection.": "Nhập tên Agent ID ở trên (ví dụ ghostbnb.ai) để xem bộ sưu tập của nó.",
  "No wallet connection needed — collections are read straight from the chain.": "Không cần kết nối ví — bộ sưu tập được đọc thẳng từ chain.",
@@ -866,7 +867,7 @@ async function scanEvents() {
 
 /* ------------------------------ demo data ------------------------------ */
 const DEMO_ME = "0xA11CE00000000000000000000000000000A11CE1";
-const demoState = { connected: false, signed: false, myStatus: "", claimed: new Set([2]), myVote: null };
+const demoState = { connected: false, signed: false, myStatus: "", claimed: new Set([2]), myVotes: [] };
 const demoUsers = [
   { address: DEMO_ME, name: "alex.ai", status: "Backtested a new strategy all night. It works. Probably.", current: 29, best: 30, badges: [2], totalSigns: 76, pokes: 5, signedToday: false, signedYesterday: true },
   { address: "0xP1XE100000000000000000000000000000000001", name: "pixelpanda.ai", status: "Shipped a new trading strategy at 3am. No regrets.", current: 41, best: 41, badges: [2, 4], totalSigns: 90, pokes: 3, votes: 4, signedToday: true, signedYesterday: true },
@@ -917,13 +918,13 @@ function wallCard(u, opts) {
   const top = tierOf(u.best, u.badges);
   const votes = DEMO ? u.votes || 0 : todayVotes.get(lc(u.address)) || 0;
   const isTop = votes > 0 && votes === (DEMO ? demoTopVotes() : topVotesToday);
-  const myVote = DEMO ? demoState.myVote : myVoteTodayAddr;
+  const myVotes = DEMO ? demoState.myVotes : myVotesToday;
   const canVote = DEMO ? demoState.connected : account && accountHasID && contractRW;
   const isSelf = account && lc(u.address) === lc(account);
   let voteBtn = "";
   if (canVote && !isSelf) {
-    if (myVote && lc(myVote) === lc(u.address)) voteBtn = `<button class="btn small vote-btn" disabled>${T("Voted ✓")}</button>`;
-    else if (!myVote) voteBtn = `<button class="btn blue small vote-btn" data-vote="${u.address}">${T("Vote ▲")}</button>`;
+    if (myVotes.includes(lc(u.address))) voteBtn = `<button class="btn small vote-btn" disabled>${T("Voted ✓")}</button>`;
+    else if (myVotes.length < 3) voteBtn = `<button class="btn blue small vote-btn" data-vote="${u.address}">${T("Vote ▲")}</button>`;
   }
   const el = document.createElement("div");
   el.className = "card" + (top ? " vip" : "") + (isTop ? " topvoted" : "");
@@ -950,14 +951,14 @@ function wallNote(u) {
   const votes = dayVotes.get(lc(u.address)) || 0;
   const isTop = votes > 0 && votes === dayTopVotes;
   const isToday = wallDayOffset === 0;
-  const myVote = DEMO ? demoState.myVote : myVoteTodayAddr;
+  const myVotes = DEMO ? demoState.myVotes : myVotesToday;
   // Voting needs a connected wallet — any wallet, no Agent ID required.
   // The button always shows on today's wall; doVote prompts to connect.
   const isSelf = (account && lc(u.address) === lc(account)) || (DEMO && demoState.connected && lc(u.address) === lc(DEMO_ME));
   let voteBtn = "";
   if (isToday && !isSelf) {
-    if (myVote && lc(myVote) === lc(u.address)) voteBtn = `<button class="wvb" disabled>${T("VOTED ✓")}</button>`;
-    else if (!myVote) voteBtn = `<button class="wvb" data-vote="${u.address}">VOTE ▲</button>`;
+    if (myVotes.includes(lc(u.address))) voteBtn = `<button class="wvb" disabled>${T("VOTED ✓")}</button>`;
+    else if (myVotes.length < 3) voteBtn = `<button class="wvb" data-vote="${u.address}">VOTE ▲</button>`;
   }
   const el = document.createElement("div");
   el.className = "wnote" + (tier ? " nft" : "");
@@ -978,7 +979,7 @@ function wallNote(u) {
 async function doVote(target, btn) {
   if (DEMO) {
     if (!demoState.connected) return toast(T("Connect a wallet to vote — any wallet works, no Agent ID needed."), true);
-    demoState.myVote = lc(target);
+    if (!demoState.myVotes.includes(lc(target))) demoState.myVotes.push(lc(target));
     const u = demoUsers.find((x) => lc(x.address) === lc(target));
     if (u) u.votes = (u.votes || 0) + 1;
     toast(Tf("You voted for {name}'s report. (demo)", { name: u ? u.name : shortAddr(target) }));
@@ -1006,7 +1007,7 @@ async function doVote(target, btn) {
     });
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data.error || "vote_failed");
-    myVoteTodayAddr = lc(target);
+    if (!myVotesToday.includes(lc(target))) myVotesToday.push(lc(target));
     toast(Tf("Vote counted for {name} — best report of the day race is on.", { name: displayName(target) }));
     await refreshWallVotes();
   } catch (e) {
@@ -1015,7 +1016,8 @@ async function doVote(target, btn) {
       btn.textContent = T("Vote ▲");
     }
     const m = String((e && e.message) || e);
-    if (m.includes("already_voted")) toast(T("You already voted today — one vote per day."), true);
+    if (m.includes("already_voted")) toast(T("You already voted for this agent today."), true);
+    else if (m.includes("vote_limit")) toast(T("You've used all 3 votes today."), true);
     else if (m.includes("not_configured")) toast(T("Voting isn't switched on yet — the vote box launches with the site update."), true);
     else if (m.includes("not_signed")) toast(T("You can only vote for agents who signed today."), true);
     else toast(humanError(e), true);
@@ -1130,7 +1132,7 @@ async function userDetail(addr) {
    checked against the chain. If the API is not live yet, everything below
    degrades quietly — the wall simply shows no tallies. */
 async function fetchVotesFor(day) {
-  const out = { map: new Map(), top: 0, myVote: null };
+  const out = { map: new Map(), top: 0, myVotes: [] };
   try {
     const q = new URLSearchParams({ day: String(day) });
     if (account) q.set("voter", account);
@@ -1142,7 +1144,8 @@ async function fetchVotesFor(day) {
       out.map.set(lc(k), n);
       if (n > out.top) out.top = n;
     }
-    if (data.myVote) out.myVote = lc(data.myVote);
+    if (Array.isArray(data.myVotes)) out.myVotes = data.myVotes.map((a) => lc(a));
+    else if (data.myVote) out.myVotes = [lc(data.myVote)];
   } catch (_) {}
   return out;
 }
@@ -1151,7 +1154,7 @@ async function fetchVotesToday() {
   const v = await fetchVotesFor(t);
   todayVotes = v.map;
   topVotesToday = v.top;
-  myVoteTodayAddr = v.myVote;
+  myVotesToday = v.myVotes;
   if (wallDayOffset === 0) {
     dayVotes = todayVotes;
     dayTopVotes = topVotesToday;
@@ -1565,18 +1568,18 @@ function renderProfileVote(addr, signedToday) {
   const btn = $("pVoteBtn");
   if (!btn) return;
   const isMe = (account && lc(addr) === lc(account)) || (DEMO && demoState.connected && lc(addr) === lc(DEMO_ME));
-  const myVote = DEMO ? demoState.myVote : myVoteTodayAddr;
+  const myVotes = DEMO ? demoState.myVotes : myVotesToday;
   if (!signedToday || isMe) {
     btn.hidden = true;
     return;
   }
   btn.hidden = false;
-  if (myVote && lc(myVote) === lc(addr)) {
+  if (myVotes.includes(lc(addr))) {
     btn.disabled = true;
     btn.textContent = T("Voted ✓");
-  } else if (myVote) {
+  } else if (myVotes.length >= 3) {
     btn.disabled = true;
-    btn.textContent = T("Voted — one per day");
+    btn.textContent = T("All 3 votes used");
   } else {
     btn.disabled = false;
     btn.textContent = T("Vote for today's report ▲");
