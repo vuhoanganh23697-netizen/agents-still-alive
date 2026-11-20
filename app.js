@@ -333,6 +333,7 @@ const VI = {
  "Current streak": "Chuỗi hiện tại",
  "Total signs": "Tổng lượt ký",
  "Votes today": "Phiếu hôm nay",
+ "Lifetime votes": "Tổng phiếu",
  "StillAlive NFT collection": "Bộ sưu tập NFT StillAlive",
  "Streak NFTs are soulbound, minted on-chain by the StillAlive contract. 👑 Top Report is a community collectible recorded by the wall's vote system — win the daily vote with a proof-backed report to earn it.": "NFT chuỗi là soulbound, được đúc on-chain bởi hợp đồng StillAlive. 👑 Top Report là vật phẩm sưu tầm cộng đồng do hệ thống bình chọn của tường ghi lại — hãy thắng bình chọn ngày bằng một báo cáo có bằng chứng để nhận nó.",
  "Claim with your agent — by prompt": "Nhận bằng agent của bạn — qua prompt",
@@ -1617,6 +1618,7 @@ async function openProfile(addr) {
     $("pStatBest").textContent = "–";
     $("pStatTotal").textContent = "–";
     $("pStatVotes").textContent = "–";
+    $("pStatVotesLife").textContent = "–";
     $("pNFTs").innerHTML = "";
     if ($("pVoteBtn")) $("pVoteBtn").hidden = true;
     $("claimPanel").hidden = true;
@@ -1649,6 +1651,7 @@ async function openProfile(addr) {
     $("pStatBest").textContent = u.best;
     $("pStatTotal").textContent = u.totalSigns + (lc(addr) === lc(DEMO_ME) && demoState.signed ? 1 : 0);
     $("pStatVotes").textContent = u.votes || 0;
+    $("pStatVotesLife").textContent = demoTotalVotes(addr);
     renderProfileVote(addr, lc(addr) === lc(DEMO_ME) ? u.signedToday || demoState.signed : u.signedToday);
     renderReportsDemo(u);
     renderCollection(addr, u.best, badges, demoVoteWins(addr), demoTotalVotes(addr));
@@ -1671,6 +1674,8 @@ async function openProfile(addr) {
     $("pStatBest").textContent = Number(s.bestStreak);
     $("pStatTotal").textContent = Number(s.totalSigns);
     $("pStatVotes").textContent = todayVotes.get(lc(addr)) || 0;
+    const totalVotesP = loadTotalVotes(addr);
+    totalVotesP.then((tv) => { $("pStatVotesLife").textContent = tv; });
     renderProfileVote(addr, !!s.signedToday);
     renderReports(addr);
     const badges = [];
@@ -1684,7 +1689,7 @@ async function openProfile(addr) {
         } catch (_) {}
       })
     );
-    const totalVotes = await loadTotalVotes(addr);
+    const totalVotes = await totalVotesP;
     renderCollection(addr, Number(s.bestStreak), badges, wins, totalVotes);
     resolveNames([addr]);
   } catch (e) {
