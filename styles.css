@@ -289,7 +289,7 @@ a.wallet-btn{text-decoration:none;display:inline-block}
 .idcard-wrap:hover .fan-l1,.idcard-wrap.hovering .fan-l1{transform:rotate(-17deg) translateY(-2px) translateZ(-1px)}
 .idcard-wrap:hover .fan-r1,.idcard-wrap.hovering .fan-r1{transform:rotate(17deg) translateY(-2px) translateZ(-1px)}
 .idcard-wrap:hover .fan-r2,.idcard-wrap.hovering .fan-r2{transform:rotate(33deg) translateY(-3px) translateZ(-2px)}
-.idcard-glare{position:absolute;inset:0;opacity:0;transition:opacity .3s;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.38),rgba(255,255,255,0) 55%);-webkit-mask-image:url(assets/agent-id-card.png);mask-image:url(assets/agent-id-card.png);-webkit-mask-size:contain;mask-size:contain;-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;pointer-events:none}
+.idcard-glare{position:absolute;inset:0;opacity:0;transition:opacity .3s;background:radial-gradient(circle at var(--gx,50%) var(--gy,50%),rgba(255,255,255,.38),rgba(255,255,255,0) 55%);-webkit-mask-image:url(assets/agent-id-card.webp);mask-image:url(assets/agent-id-card.webp);-webkit-mask-size:contain;mask-size:contain;-webkit-mask-position:center;mask-position:center;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;pointer-events:none}
 .idcard-wrap.hovering .idcard-glare{opacity:1}
 .idcard-wrap.hovering{animation-play-state:paused}
 .btn.gold{background:#F0B90B;color:#0B0E11;border-color:#0B0E11}

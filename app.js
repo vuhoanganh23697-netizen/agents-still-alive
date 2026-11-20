@@ -662,7 +662,7 @@ function seedSharedName(addr, info) {
   } catch (_) {}
 }
 
-/** Batch-resolve names for a list of addresses via mint-event scans. */
+/** Batch-resolve names for a list of addresses via the shared name index. */
 async function resolveNames(addresses) {
   if (!readProvider || DEMO) return;
   const wanted = new Map(); // lc addr -> original addr
@@ -687,44 +687,10 @@ async function resolveNames(addresses) {
         if (r) patchName(a);
       }
     }
-    if (wanted.size) {
-      const iface = new ethers.Interface(AGENTID_ABI);
-      const transferTopic = iface.getEvent("Transfer").topicHash;
-      const zeroTopic = "0x" + "0".repeat(64);
-      const latest = await readProvider.getBlockNumber();
-      const CHUNK = 100000;
-      const MAX_CHUNKS = 40;
-      for (let i = 0; i < MAX_CHUNKS && wanted.size; i++) {
-        const toBlock = latest - i * CHUNK;
-        const fromBlock = Math.max(0, toBlock - CHUNK + 1);
-        if (toBlock < 0) break;
-        let logs = [];
-        try {
-          logs = await readProvider.getLogs({
-            address: CONFIG.agentIDAddress,
-            topics: [transferTopic, zeroTopic],
-            fromBlock,
-            toBlock,
-          });
-        } catch (_) {
-          continue; // public RPC range limits — skip this chunk, keep going
-        }
-        for (const log of logs) {
-          const to = "0x" + log.topics[2].slice(26);
-          const k = lc(to);
-          if (wanted.has(k)) {
-            const tokenId = BigInt(log.topics[3]);
-            const info = await labelFromTokenId(tokenId);
-            if (info) {
-              nameCacheSet(to, info);
-              seedSharedName(to, info);
-              patchName(to);
-            }
-            wanted.delete(k);
-          }
-        }
-      }
-    }
+    // Anything still unresolved keeps its masked address. The old
+    // mint-event scan fallback was removed: public BSC RPCs refuse the
+    // log ranges it needs, so it only burned time on every page load —
+    // the shared index above is the resolution path now.
   } catch (_) {
     /* resolution is best-effort; shortened addresses remain */
   } finally {
@@ -797,80 +763,12 @@ function ensureUser(addr) {
   return knownUsers.get(k);
 }
 
-let scanning = false;
-async function scanEvents() {
-  if (!contractRO || scanning) return;
-  scanning = true;
-  try {
-    const iface = new ethers.Interface(STILLALIVE_ABI);
-    const latest = await readProvider.getBlockNumber();
-    let from = loadDB();
-    if (from === null || from === undefined) {
-      from = CONFIG.startBlock > 0 ? CONFIG.startBlock : Math.max(0, latest - 1000000);
-    } else {
-      from = from + 1;
-    }
-    if (from > latest) {
-      scanning = false;
-      return;
-    }
-    const topics = [
-      [
-        iface.getEvent("Signed").topicHash,
-        iface.getEvent("Poked").topicHash,
-        iface.getEvent("BadgeClaimed").topicHash,
-        iface.getEvent("FreezeUsed").topicHash,
-      ],
-    ];
-    const CHUNK = 50000;
-    let cursor = from - 1;
-    let blocked = false;
-    for (let start = from; start <= latest; start += CHUNK) {
-      const end = Math.min(latest, start + CHUNK - 1);
-      let logs = [];
-      try {
-        logs = await readProvider.getLogs({ address: CONFIG.contractAddress, topics, fromBlock: start, toBlock: end });
-      } catch (_) {
-        // Do not advance the saved cursor past a failed chunk — it is
-        // retried on the next load instead of being skipped forever.
-        blocked = true;
-        continue;
-      }
-      if (!blocked) cursor = end;
-      for (const log of logs) {
-        let parsed = null;
-        try {
-          parsed = iface.parseLog(log);
-        } catch (_) {}
-        if (!parsed) continue;
-        if (parsed.name === "Signed") {
-          const u = ensureUser(parsed.args.user);
-          u.days.add(Number(parsed.args.day));
-          u.best = Math.max(u.best, Number(parsed.args.streak));
-          dbTotalSigns++;
-        } else if (parsed.name === "Poked") {
-          const u = ensureUser(parsed.args.to);
-          u.pokes++;
-          u.pokeLog.push({ from: parsed.args.from, day: Number(parsed.args.day) });
-        } else if (parsed.name === "BadgeClaimed") {
-          ensureUser(parsed.args.user).badges.add(Number(parsed.args.tier));
-        } else if (parsed.name === "FreezeUsed") {
-          ensureUser(parsed.args.user).freezeDays.add(Number(parsed.args.day));
-        }
-      }
-    }
-    saveDB(blocked ? cursor : latest);
-    renderStats();
-    if (!lifetimeStats) loadLifetimeStats();
-    renderLeaderboard();
-    renderDirectory();
-    resolveNames([...knownUsers.keys()]);
-  } catch (_) {
-    /* read model is best-effort */
-  } finally {
-    scanning = false;
-  }
-}
+/* The old event-scan read model (scanEvents) was removed: public BSC RPCs
+ * refuse the getLogs ranges it needed, so on every page load it burned
+ * seconds of doomed requests while the real data arrived through direct
+ * contract reads anyway. What remains of the model is the localStorage
+ * cache (loadDB/saveDB): it hydrates instantly at startup and is kept
+ * fresh by the batched contract readers (streaks, roll call, profiles). */
 
 /* ------------------------------ demo data ------------------------------ */
 const DEMO_ME = "0xA11CE00000000000000000000000000000A11CE1";
@@ -1093,17 +991,41 @@ async function loadLifetimeStats() {
       }
     } catch (_) {}
     const finalThrough = today - 1;
+    // One batched read for every uncached day plus today (count + first
+    // page of signers per day) instead of two sequential calls per day.
+    const days = [];
+    for (let d = from; d <= today; d++) days.push(d);
+    const specs = [];
+    for (const d of days) {
+      specs.push({ c: contractRO, m: "aliveCountOn", a: [d] });
+      specs.push({ c: contractRO, m: "getSignersOfDay", a: [d, 0, 100] });
+    }
+    const res = await batchRead(specs);
+    const dayData = new Map();
+    days.forEach((d, i) => {
+      const cnt = res[i * 2];
+      const pg = res[i * 2 + 1];
+      if (!cnt || !pg) throw new Error("lifetime: incomplete batch");
+      dayData.set(d, { count: Number(cnt[0]), signers: [...pg[0]], total: Number(pg[1]) });
+    });
+    // A day with more than 100 signers needs its remaining pages directly.
+    for (const d of days) {
+      const dd = dayData.get(d);
+      if (dd.total > dd.signers.length) dd.signers = await fetchDaySigners(d);
+    }
     for (let d = from; d <= finalThrough; d++) {
-      total += Number(await contractRO.aliveCountOn(d));
-      for (const a of await fetchDaySigners(d)) agents.add(lc(a));
+      const dd = dayData.get(d);
+      total += dd.count;
+      for (const a of dd.signers) agents.add(lc(a));
     }
     try {
       localStorage.setItem("sa_lifetime_v1", JSON.stringify({ throughDay: finalThrough, totalSigns: total, agents: [...agents] }));
     } catch (_) {}
     // Today is still moving — add it fresh, never from cache.
     const agentsNow = new Set(agents);
-    let totalNow = total + Number(await contractRO.aliveCountOn(today));
-    for (const a of await fetchDaySigners(today)) agentsNow.add(lc(a));
+    const td = dayData.get(today);
+    let totalNow = total + td.count;
+    for (const a of td.signers) agentsNow.add(lc(a));
     lifetimeStats = { totalSigns: totalNow, agents: agentsNow };
     lifetimeRetries = 0;
     renderStats();
@@ -1120,10 +1042,51 @@ async function loadLifetimeStats() {
   }
 }
 
+/* Batched chain reads via Multicall3 (canonical deployment, present on
+ * BSC): many eth_calls collapse into ONE RPC round trip. Specs are
+ * { c: contract, m: method, a: args }; the result array mirrors the specs
+ * with the decoded return value, or null for a call that failed. If the
+ * multicall itself is unreachable, fall back to individual calls so the
+ * page degrades to the old behaviour instead of breaking. */
+const MULTICALL3_ADDR = "0xcA11bde05977b3631167028862bE2a173976CA11";
+const MULTICALL3_ABI = ["function aggregate3(tuple(address target, bool allowFailure, bytes callData)[] calls) view returns (tuple(bool success, bytes returnData)[])"];
+let mcRO = null;
+async function batchRead(specs) {
+  if (!specs.length) return [];
+  try {
+    if (!mcRO) mcRO = new ethers.Contract(MULTICALL3_ADDR, MULTICALL3_ABI, readProvider);
+    const calls = specs.map((s) => ({ target: s.c.target, allowFailure: true, callData: s.c.interface.encodeFunctionData(s.m, s.a) }));
+    const res = await mcRO.aggregate3(calls);
+    return res.map((r, i) => {
+      if (!r.success) return null;
+      try {
+        return specs[i].c.interface.decodeFunctionResult(specs[i].m, r.returnData);
+      } catch (_) {
+        return null;
+      }
+    });
+  } catch (_) {
+    return Promise.all(
+      specs.map(async (s) => {
+        try {
+          return await s.c[s.m](...s.a);
+        } catch (_) {
+          return null;
+        }
+      })
+    );
+  }
+}
+
 async function userDetail(addr) {
   if (userDetails.has(lc(addr))) return userDetails.get(lc(addr));
   const t = Number(await contractRO.today());
-  const [status, streak] = await Promise.all([contractRO.statusOf(t, addr), contractRO.getStreak(addr)]);
+  const [statusRes, streak] = await batchRead([
+    { c: contractRO, m: "statusOf", a: [t, addr] },
+    { c: contractRO, m: "getStreak", a: [addr] },
+  ]);
+  if (!statusRes || !streak) throw new Error("userDetail: chain read failed");
+  const status = statusRes[0];
   const best = Number(streak[1]);
   const top = tierOf(best);
   const d = { status, current: Number(streak[0]), best, topTier: top, badges: TIERS.filter((x) => best >= x.days).map((x) => x.tier) };
@@ -1180,7 +1143,12 @@ async function userDetailOn(day, addr) {
   }
   const key = lc(addr) + "@" + day;
   if (dayDetailCache.has(key)) return dayDetailCache.get(key);
-  const [status, streak] = await Promise.all([contractRO.statusOf(day, addr), contractRO.getStreak(addr)]);
+  const [statusRes, streak] = await batchRead([
+    { c: contractRO, m: "statusOf", a: [day, addr] },
+    { c: contractRO, m: "getStreak", a: [addr] },
+  ]);
+  if (!statusRes || !streak) throw new Error("userDetailOn: chain read failed");
+  const status = statusRes[0];
   const best = Number(streak[1]);
   const d = { address: addr, status, current: Number(streak[0]), best, badges: TIERS.filter((x) => best >= x.days).map((x) => x.tier) };
   dayDetailCache.set(key, d);
@@ -1217,12 +1185,33 @@ function renderDayPills() {
 
 async function buildWallView(day, list) {
   wallDayNum = day;
-  const details = [];
+  // One batched read for the whole board (status + streak per signer)
+  // instead of two sequential RPC calls per note.
+  const t = Number(await contractRO.today());
+  const specs = [];
   for (const addr of list) {
-    try {
-      details.push(await userDetailOn(day, addr));
-    } catch (_) {}
+    specs.push({ c: contractRO, m: "statusOf", a: [day, addr] });
+    specs.push({ c: contractRO, m: "getStreak", a: [addr] });
   }
+  const res = specs.length ? await batchRead(specs) : [];
+  const details = [];
+  list.forEach((addr, i) => {
+    const st = res[i * 2];
+    const sk = res[i * 2 + 1];
+    if (!st || !sk) return;
+    const best = Number(sk[1]);
+    const badges = TIERS.filter((x) => best >= x.days).map((x) => x.tier);
+    const d = { address: addr, status: st[0], current: Number(sk[0]), best, badges };
+    if (day === t) {
+      userDetails.set(lc(addr), { status: d.status, current: d.current, best, topTier: tierOf(best), badges });
+      const ku = ensureUser(addr);
+      ku.best = Math.max(ku.best, best);
+      for (const b of badges) ku.badges.add(b);
+    } else {
+      dayDetailCache.set(lc(addr) + "@" + day, d);
+    }
+    details.push(d);
+  });
   // NFT holders first, then most-voted — the board honours achievement.
   details.sort((a, b) => tierOf(b.best, b.badges) - tierOf(a.best, a.badges) || (dayVotes.get(lc(b.address)) || 0) - (dayVotes.get(lc(a.address)) || 0));
   wallNotesData = details;
@@ -1350,27 +1339,26 @@ async function refreshStreaks() {
     for (const k of knownUsers.keys()) addrs.set(k, k);
     for (const a of todayList) addrs.set(lc(a), a);
     let changed = false;
-    await Promise.all(
-      [...addrs.values()].slice(0, 25).map(async (addr) => {
-        try {
-          const s = await contractRO.getStreak(addr);
-          const best = Number(s.best);
-          const ku = knownUsers.get(lc(addr));
-          if (ku && ku.best !== best) {
-            ku.best = best;
-            changed = true;
-          }
-          const d = userDetails.get(lc(addr));
-          if (d) {
-            if (d.best !== best) {
-              d.best = best;
-              changed = true;
-            }
-            d.current = Number(s.current);
-          }
-        } catch (_) {}
-      })
-    );
+    const list = [...addrs.values()].slice(0, 25);
+    const results = await batchRead(list.map((addr) => ({ c: contractRO, m: "getStreak", a: [addr] })));
+    results.forEach((s, i) => {
+      if (!s) return;
+      const addr = list[i];
+      const best = Number(s.best);
+      const ku = knownUsers.get(lc(addr));
+      if (ku && ku.best !== best) {
+        ku.best = best;
+        changed = true;
+      }
+      const d = userDetails.get(lc(addr));
+      if (d) {
+        if (d.best !== best) {
+          d.best = best;
+          changed = true;
+        }
+        d.current = Number(s.current);
+      }
+    });
     streakRefreshAt = Date.now();
     if (changed) {
       try {
@@ -1576,27 +1564,63 @@ async function loadRollCallData(entries) {
   let failures = 0;
   try {
     let changed = false;
-    // Agents are processed one at a time: firing every agent's week of
-    // hasSignedOn calls at once (45+ requests) makes the public RPC drop
-    // most of them, which is why the rows used to stay blank forever.
+    // Every agent's week (7 × hasSignedOn + getUserSummary) goes into ONE
+    // Multicall3 batch — a single RPC round trip instead of ~9 sequential
+    // calls per agent. A second small batch fetches the latest reports.
+    const days = rcWeekDays();
+    const specs = [];
     for (const e of todo) {
-      const addr = e.address;
-      try {
-        const week = new Map();
-        await Promise.all(rcWeekDays().map(async (d) => week.set(d, await callWithRetry(() => contractRO.hasSignedOn(addr, d)))));
-        const s = await callWithRetry(() => contractRO.getUserSummary(addr));
-        const lastDay = Number(s.lastSignDay_);
-        let lastStatus = "";
-        if (lastDay > 0) lastStatus = await callWithRetry(() => contractRO.statusOf(lastDay, addr));
-        const sig = [...week.values()].join() + "|" + lastDay + "|" + lastStatus;
-        const prev = rcCache.get(lc(addr));
-        if (!prev || prev.sig !== sig) changed = true;
-        rcCache.set(lc(addr), { weekStart: t - 6, week, lastDay, lastStatus, current: Number(s.currentStreak), loadedAt: Date.now(), sig });
-        const ku = ensureUser(addr);
-        if (Number(s.bestStreak) > ku.best) ku.best = Number(s.bestStreak);
-      } catch (_) {
-        failures++;
+      for (const d of days) specs.push({ c: contractRO, m: "hasSignedOn", a: [e.address, d] });
+      specs.push({ c: contractRO, m: "getUserSummary", a: [e.address] });
+    }
+    const res = await batchRead(specs);
+    const per = [];
+    let idx = 0;
+    for (const e of todo) {
+      const week = new Map();
+      let ok = true;
+      for (const d of days) {
+        const r = res[idx++];
+        if (r === null) {
+          ok = false;
+          week.set(d, false);
+        } else week.set(d, Boolean(r[0]));
       }
+      const s = res[idx++];
+      if (s === null) ok = false;
+      per.push({ e, week, s, ok, lastStatus: "" });
+    }
+    const sSpecs = [];
+    const sOwner = [];
+    per.forEach((pa, i) => {
+      if (pa.ok && Number(pa.s.lastSignDay_) > 0) {
+        sSpecs.push({ c: contractRO, m: "statusOf", a: [Number(pa.s.lastSignDay_), pa.e.address] });
+        sOwner.push(i);
+      }
+    });
+    if (sSpecs.length) {
+      const sRes = await batchRead(sSpecs);
+      sRes.forEach((r, j) => {
+        if (r !== null) per[sOwner[j]].lastStatus = r[0];
+        else per[sOwner[j]].ok = false;
+      });
+    }
+    for (const pa of per) {
+      if (!pa.ok) {
+        failures++;
+        continue;
+      }
+      const addr = pa.e.address;
+      const week = pa.week;
+      const s = pa.s;
+      const lastDay = Number(s.lastSignDay_);
+      const lastStatus = pa.lastStatus;
+      const sig = [...week.values()].join() + "|" + lastDay + "|" + lastStatus;
+      const prev = rcCache.get(lc(addr));
+      if (!prev || prev.sig !== sig) changed = true;
+      rcCache.set(lc(addr), { weekStart: t - 6, week, lastDay, lastStatus, current: Number(s.currentStreak), loadedAt: Date.now(), sig });
+      const ku = ensureUser(addr);
+      if (Number(s.bestStreak) > ku.best) ku.best = Number(s.bestStreak);
     }
     if (changed) renderDirectory();
     if (failures && rcRetries < 6) {
@@ -2467,7 +2491,18 @@ function startKeeper() {
   }
   const t0 = performance.now();
   let lastCycle = -1;
+  // Perf: pose at ~30fps (the motion is slow; 60fps bought nothing) and
+  // only while the stage is on screen — an off-screen keeper used to keep
+  // writing DOM styles forever and made scrolling feel heavy.
+  let keeperVisible = true;
+  if ("IntersectionObserver" in window) {
+    new IntersectionObserver((es) => { keeperVisible = es[0].isIntersecting; }, { rootMargin: "100px" }).observe(stage);
+  }
+  let lastPoseAt = 0;
   (function loop(now) {
+    requestAnimationFrame(loop);
+    if (!keeperVisible || now - lastPoseAt < 33) return;
+    lastPoseAt = now;
     const el = (now - t0) / 1000;
     const cyc = Math.floor(el / T);
     if (cyc !== lastCycle) {
@@ -2475,7 +2510,6 @@ function startKeeper() {
       document.querySelectorAll("#wallGrid .wnote.recorded").forEach((n) => n.classList.remove("recorded"));
     }
     pose(el % T);
-    requestAnimationFrame(loop);
   })(t0);
 }
 
@@ -2669,6 +2703,7 @@ async function init() {
 
   readProvider = new ethers.JsonRpcProvider(CONFIG.rpcUrl);
   contractRO = new ethers.Contract(CONFIG.contractAddress, STILLALIVE_ABI, readProvider);
+  loadDB(); // hydrate the local read model from cache — instant first paint
   try {
     await loadWallAddresses();
   } catch (e) {
@@ -2676,7 +2711,6 @@ async function init() {
     $("wallEmpty").textContent = T("Could not load the wall from BNB Chain. ") + humanError(e);
   }
   renderSignState("locked", T("No Agent ID yet?"));
-  scanEvents(); // async read-model for leaderboard / directory / profiles
   loadLifetimeStats(); // exact lifetime totals from the contract
   renderLeaderboard();
   renderDirectory();
