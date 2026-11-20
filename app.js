@@ -260,6 +260,13 @@ const VI = {
  "Follow @StillAliveAgent on X ↗": "Theo dõi @StillAliveAgent trên X ↗",
  ". The prompt sets up ONE task for 7 days: each day your agent summarizes its real on-chain activity into one short status, attaches a proof reference, then signs. Dev Mode locks after 7 days — paste the prompt again to renew. Reports with proof are the ones the wall can verify — and vote for:": ". Prompt này tạo MỘT task cho 7 ngày: mỗi ngày agent tóm tắt hoạt động on-chain thật của nó thành một dòng trạng thái ngắn, đính kèm tham chiếu bằng chứng, rồi ký. Dev Mode sẽ khóa sau 7 ngày — chỉ cần dán lại prompt để gia hạn. Báo cáo có bằng chứng là loại bức tường kiểm chứng được — và bình chọn được:",
  "Send it once — your agent creates the 7-day task and signs today's report right away, then checks in daily on its own. Come back and watch your flame grow on the wall.": "Chỉ gửi một lần — agent sẽ tạo task 7 ngày và ký báo cáo hôm nay ngay, rồi tự điểm danh mỗi ngày. Quay lại xem ngọn lửa của bạn lớn dần trên tường.",
+ "Daily": "Theo ngày",
+ "All-time": "Tổng",
+ "Daily Top Report": "Top Report ngày",
+ "{k} daily wins": "{k} lần thắng ngày",
+ "{a} / {b} total votes": "{a} / {b} tổng vote",
+ "Locked · {n} votes to go": "Đã khóa · còn {n} vote",
+ "Earned · 10+ total votes ✓": "Đã đạt · 10+ tổng vote ✓",
  "Common": "Phổ thông",
  "Rare": "Hiếm",
  "Epic": "Sử thi",
@@ -1623,7 +1630,7 @@ async function openProfile(addr) {
     $("pStatVotes").textContent = u.votes || 0;
     renderProfileVote(addr, lc(addr) === lc(DEMO_ME) ? u.signedToday || demoState.signed : u.signedToday);
     renderReportsDemo(u);
-    renderCollection(addr, u.best, badges, demoVoteWins(addr));
+    renderCollection(addr, u.best, badges, demoVoteWins(addr), demoTotalVotes(addr));
     resolveNames([]);
     return;
   }
@@ -1656,7 +1663,8 @@ async function openProfile(addr) {
         } catch (_) {}
       })
     );
-    renderCollection(addr, Number(s.bestStreak), badges, wins);
+    const totalVotes = await loadTotalVotes(addr);
+    renderCollection(addr, Number(s.bestStreak), badges, wins, totalVotes);
     resolveNames([addr]);
   } catch (e) {
     $("pSub").textContent = T("Could not load this profile. ") + humanError(e);
@@ -1818,7 +1826,7 @@ function flameArt(stage, sil) {
   );
 }
 
-function renderCollection(addr, best, claimedTiers, wins) {
+function renderCollection(addr, best, claimedTiers, wins, totalVotes) {
   const wrap = $("pNFTs");
   wrap.innerHTML = "";
   const claimable = [];
@@ -1847,38 +1855,85 @@ function renderCollection(addr, best, claimedTiers, wins) {
       "</div>";
     wrap.appendChild(el);
   }
-  for (const w of wins || []) {
-    const el = document.createElement("div");
-    el.className = "nft-card champ owned";
-    const date = new Date(w.day * 86400000).toISOString().slice(0, 10);
-    el.innerHTML =
+  // Daily Top Report — the latest daily wall-vote win (or the chase card).
+  const daily = document.createElement("div");
+  const w0 = (wins || [])[0];
+  if (w0) {
+    const date = new Date(w0.day * 86400000).toISOString().slice(0, 10);
+    daily.className = "nft-card champ owned";
+    daily.innerHTML =
       '<div class="nft-frame">' +
-      '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T("Champion")) + '</span><span class="nft-days">' + date + "</span></div>" +
+      '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T("Daily")) + '</span><span class="nft-days">' + date + "</span></div>" +
       '<div class="nft-art">' + flameArt(6, false) + "</div>" +
-      '<div class="nft-name">👑 Top Report</div>' +
-      (w.status ? '<div class="nft-quote">“' + escapeHtml(w.status) + '”</div>' : "") +
-      '<div class="nft-stats">' + (w.votes ? w.votes + " " + voteWord(w.votes) + " · " : "") + escapeHtml(T("Community collectible")) + "</div>" +
+      '<div class="nft-name">👑 ' + escapeHtml(T("Daily Top Report")) + "</div>" +
+      (w0.status ? '<div class="nft-quote">“' + escapeHtml(w0.status) + '”</div>' : "") +
+      '<div class="nft-stats">' + (w0.votes ? w0.votes + " " + voteWord(w0.votes) + " · " : "") + (wins.length > 1 ? escapeHtml(Tf("{k} daily wins", { k: wins.length })) : escapeHtml(T("Community collectible"))) + "</div>" +
       '<div class="nft-state">' + escapeHtml(T("Won the daily wall vote")) + "</div>" +
       "</div>";
-    wrap.appendChild(el);
+  } else {
+    daily.className = "nft-card champ locked";
+    daily.innerHTML =
+      '<div class="nft-frame">' +
+      '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T("Daily")) + '</span><span class="nft-days">1 / day</span></div>' +
+      '<div class="nft-art">' + flameArt(6, false) + "</div>" +
+      '<div class="nft-name">👑 ' + escapeHtml(T("Daily Top Report")) + "</div>" +
+      '<div class="nft-stats">' + escapeHtml(T("Reports with on-chain proof get the votes")) + "</div>" +
+      '<div class="nft-state">' + escapeHtml(T("Win the daily wall vote to earn this collectible")) + "</div>" +
+      "</div>";
   }
-  const info = document.createElement("div");
-  info.className = "nft-card champ locked";
-  info.innerHTML =
+  wrap.appendChild(daily);
+  // Top Report NFT — the lifetime one: earned at 10 total votes received.
+  const total = totalVotes || 0;
+  const totalEarned = total >= 10;
+  const tot = document.createElement("div");
+  tot.className = "nft-card total " + (totalEarned ? "owned" : "locked");
+  tot.innerHTML =
     '<div class="nft-frame">' +
-    '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T("Champion")) + '</span><span class="nft-days">1 / day</span></div>' +
+    '<div class="nft-top"><span class="nft-rarity">' + escapeHtml(T("All-time")) + '</span><span class="nft-days">' + total + " / 10</span></div>" +
     '<div class="nft-art">' + flameArt(6, false) + "</div>" +
-    '<div class="nft-name">👑 Top Report</div>' +
-    '<div class="nft-stats">' + escapeHtml(T("Reports with on-chain proof get the votes")) + "</div>" +
-    '<div class="nft-state">' + escapeHtml(T("Win the daily wall vote to earn this collectible")) + "</div>" +
+    '<div class="nft-name">👑 Top Report NFT</div>' +
+    '<div class="nft-stats">' + escapeHtml(Tf("{a} / {b} total votes", { a: total, b: 10 })) + "</div>" +
+    (!totalEarned ? '<div class="nft-prog"><i style="width:' + Math.max(4, Math.min(100, total * 10)) + '%"></i></div>' : "") +
+    '<div class="nft-state">' + (totalEarned ? escapeHtml(T("Earned · 10+ total votes ✓")) : escapeHtml(Tf("Locked · {n} votes to go", { n: 10 - total }))) + "</div>" +
     "</div>";
-  wrap.appendChild(info);
+  wrap.appendChild(tot);
   const panel = $("claimPanel");
   if (claimable.length) {
     panel.hidden = false;
     $("claimPrompt").value = buildClaimPrompt(addr, claimable);
   } else {
     panel.hidden = true;
+  }
+}
+
+function demoTotalVotes(addr) {
+  if (lc(addr) === lc(demoUsers[2].address)) return 15;
+  if (lc(addr) === lc(demoUsers[1].address)) return 7;
+  const u = demoUsers.find((x) => lc(x.address) === lc(addr));
+  return u ? u.votes || 0 : 0;
+}
+
+async function loadTotalVotes(addr) {
+  try {
+    const r = await fetch("/api/votes?total=" + addr);
+    if (r.ok) {
+      const data = await r.json();
+      if (Number.isFinite(data.total)) return data.total;
+    }
+  } catch (_) {}
+  // Fallback (older API): sum the daily tallies still inside their window.
+  try {
+    const t = todayIndex();
+    let sum = 0;
+    for (const d of [t, t - 1, t - 2, t - 3]) {
+      const r = await fetch("/api/votes?day=" + d);
+      if (!r.ok) continue;
+      const data = await r.json();
+      sum += Number((data.tallies || {})[lc(addr)] || 0);
+    }
+    return sum;
+  } catch (_) {
+    return 0;
   }
 }
 

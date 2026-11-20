@@ -164,6 +164,7 @@ nav a:hover{color:var(--ink);box-shadow:inset 0 -3px 0 var(--y)}
 .nft-card.r4{background:linear-gradient(160deg,#9A7400,#F0B90B 45%,#9A7400)}
 .nft-card.r5{background:linear-gradient(120deg,#F0B90B,#FF86D2,#14B8D4,#F0B90B);background-size:280% 280%;animation:holoShift 7s linear infinite}
 .nft-card.champ{background:linear-gradient(160deg,#9A7400,#F0B90B 45%,#9A7400)}
+.nft-card.total{background:linear-gradient(160deg,#6D28D9,#F0B90B 55%,#6D28D9)}
 .nft-card.locked{background:linear-gradient(160deg,#3A4048,#4A515B 45%,#3A4048);box-shadow:none}
 .nft-card.owned{box-shadow:0 14px 30px -10px rgba(20,24,31,.55)}
 .nft-card.claimable{animation:claimPulse 2.2s ease-in-out infinite}
@@ -174,7 +175,7 @@ nav a:hover{color:var(--ink);box-shadow:inset 0 -3px 0 var(--y)}
 .nft-card:hover .nft-frame::after{transform:translateX(120%)}
 .nft-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px}
 .nft-rarity{font-size:10.5px;font-weight:900;letter-spacing:1.6px;text-transform:uppercase;color:#D9A05B}
-.r2 .nft-rarity{color:#C9D1DB}.r3 .nft-rarity{color:#C084FC}.r4 .nft-rarity{color:#F8D33A}.r5 .nft-rarity{color:#F8D33A}.champ .nft-rarity{color:#F8D33A}.locked .nft-rarity{color:#707A8A}
+.r2 .nft-rarity{color:#C9D1DB}.r3 .nft-rarity{color:#C084FC}.r4 .nft-rarity{color:#F8D33A}.r5 .nft-rarity{color:#F8D33A}.champ .nft-rarity{color:#F8D33A}.total .nft-rarity{color:#D8B4FE}.locked .nft-rarity{color:#707A8A}
 .nft-days{font-size:10.5px;font-weight:900;letter-spacing:1px;color:#9AA3AD}
 .nft-art{background:radial-gradient(circle at 50% 68%,rgba(255,150,0,.16),rgba(255,150,0,0) 62%),#171B23;border-radius:12px;aspect-ratio:1.12/1;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .nft-art svg{width:86%;height:86%}
