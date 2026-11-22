@@ -318,6 +318,11 @@ const VI = {
  "Load more": "Tải thêm",
  "Badge holders get the VIP board": "Người có huy hiệu sẽ lên bảng VIP",
  "VIP Board — badge holders": "Bảng VIP — người có huy hiệu",
+ "The most-voted agent holds the crown": "Agent được vote nhiều nhất sẽ giữ vương miện",
+ "Top Vote — most voted": "Top Vote — được vote nhiều nhất",
+ "The crown is still empty — the first vote puts an agent on the throne.": "Ngôi vương còn trống — vote đầu tiên sẽ đưa một agent lên ngôi.",
+ "Chasing the crown": "Đang bám đuổi",
+ "Loading votes…": "Đang tải phiếu…",
  "Top streaks": "Chuỗi dài nhất",
  "No badges claimed yet. A 7-day streak earns the first one.": "Chưa có huy hiệu nào được nhận. Chuỗi 7 ngày sẽ nhận cái đầu tiên.",
  "No streaks yet.": "Chưa có chuỗi nào.",
@@ -369,7 +374,7 @@ function loc() { return LANG === "vi" ? "vi-VN" : "en-US"; }
 function voteWord(n) { return LANG === "vi" ? "phiếu" : n === 1 ? "vote" : "votes"; }
 const _origText = new WeakMap();
 const _origPh = new WeakMap();
-const I18N_SKIP = "script, style, textarea, #wallGrid, #dirGrid, #rcPager, #vipList, #topList, #pNFTs, #pReports, #toast, #dayPills";
+const I18N_SKIP = "script, style, textarea, #wallGrid, #dirGrid, #rcPager, #voteBoard, #topList, #pNFTs, #pReports, #toast, #dayPills";
 function applyStatic() {
   document.documentElement.lang = LANG === "vi" ? "vi" : "en";
   document.title = T("StillAlive — Is your agent still alive today?");
@@ -889,6 +894,7 @@ async function doVote(target, btn) {
     if (u) u.votes = (u.votes || 0) + 1;
     toast(Tf("You voted for {name}'s report. (demo)", { name: u ? u.name : shortAddr(target) }));
     renderWallDemo();
+    renderVoteBoard();
     return;
   }
   if (!account) {
@@ -915,6 +921,8 @@ async function doVote(target, btn) {
     if (!myVotesToday.includes(lc(target))) myVotesToday.push(lc(target));
     toast(Tf("Vote counted for {name} — best report of the day race is on.", { name: displayName(target) }));
     await refreshWallVotes();
+    voteTotalsCache = null;
+    renderVoteBoard();
   } catch (e) {
     if (btn) {
       btn.disabled = false;
@@ -1299,10 +1307,161 @@ function lbRow(u, rank, sub, value, valueLabel) {
   return el;
 }
 
+/* ---------------------- Top Vote board (the crown) ----------------------
+ * The old VIP Board duplicated Top streaks (same best-streak ranking), so
+ * the left leaderboard card is now a podium for the community vote: the
+ * lifetime-vote leader holds a champion card with their latest report,
+ * #2/#3 sit below, and everyone else chases as chips. Totals come from the
+ * off-chain vote API (GET /api/votes?totals=1); ties break by best streak. */
+let voteTotalsCache = null; // Map lc(addr) -> lifetime votes (only counts > 0)
+let voteTotalsLoading = false;
+
+async function loadVoteTotals() {
+  if (voteTotalsCache || voteTotalsLoading) return;
+  voteTotalsLoading = true;
+  try {
+    const r = await fetch("/api/votes?totals=1");
+    if (r.ok) {
+      const data = await r.json();
+      const m = new Map();
+      for (const [a, c] of Object.entries(data.totals || {})) if (Number(c) > 0) m.set(lc(a), Number(c));
+      voteTotalsCache = m;
+    }
+  } catch (_) {}
+  voteTotalsLoading = false;
+  renderVoteBoard();
+}
+
+function leaderboardEntries() {
+  if (DEMO) return demoUsers.map((u) => ({ address: u.address, best: u.best, badges: u.badges, current: u.current }));
+  const entries = [];
+  for (const [addr, u] of knownUsers) entries.push({ address: addr, best: u.best, badges: [...u.badges], current: 0 });
+  for (const addr of todayList) {
+    if (!entries.find((e) => lc(e.address) === lc(addr))) {
+      const d = userDetails.get(lc(addr));
+      entries.push({ address: addr, best: d ? d.best : 0, badges: d ? d.badges : [], current: d ? d.current : 0 });
+    }
+  }
+  return entries;
+}
+
+function voteRanking(entries) {
+  let totals;
+  if (DEMO) {
+    totals = new Map(demoUsers.map((u) => [lc(u.address), demoTotalVotes(u.address)]).filter(([, c]) => c > 0));
+  } else {
+    if (!voteTotalsCache) return null; // not loaded yet
+    totals = voteTotalsCache;
+  }
+  const byAddr = new Map((entries || []).map((e) => [lc(e.address), e]));
+  const rows = [];
+  for (const [a, votes] of totals) {
+    const e = byAddr.get(a);
+    rows.push({ address: e ? e.address : a, best: e ? e.best : 0, badges: e ? e.badges : [], votes });
+  }
+  rows.sort((x, y) => y.votes - x.votes || y.best - x.best || lc(x.address).localeCompare(lc(y.address)));
+  return rows;
+}
+
+async function fillChampQuote(addr) {
+  if (!document.getElementById("tvChampQuote")) return;
+  let status = "";
+  try {
+    if (DEMO) {
+      const u = demoUsers.find((x) => lc(x.address) === lc(addr));
+      status = u ? u.status || "" : "";
+    } else {
+      const rc = rcCache.get(lc(addr));
+      if (rc && rc.lastStatus) status = rc.lastStatus;
+      if (!status) {
+        const d = userDetails.get(lc(addr));
+        if (d && d.status) status = d.status;
+      }
+      if (!status && contractRO) {
+        const [sum] = await batchRead([{ c: contractRO, m: "getUserSummary", a: [addr] }]);
+        const lastDay = sum ? Number(sum[0]) : 0;
+        if (lastDay > 0) {
+          const [st] = await batchRead([{ c: contractRO, m: "statusOf", a: [lastDay, addr] }]);
+          if (st) status = st[0] || "";
+        }
+      }
+    }
+  } catch (_) {}
+  const q = document.getElementById("tvChampQuote");
+  if (status && q) {
+    q.textContent = "“" + status + "”";
+    q.hidden = false;
+  }
+}
+
+function renderVoteBoard(entries) {
+  const board = $("voteBoard");
+  if (!board) return;
+  const rows = voteRanking(entries || leaderboardEntries());
+  board.innerHTML = "";
+  if (!rows) {
+    $("voteEmpty").hidden = true;
+    board.innerHTML = `<div class="empty small">${T("Loading votes…")}</div>`;
+    loadVoteTotals();
+    return;
+  }
+  $("voteEmpty").hidden = rows.length !== 0;
+  if (!rows.length) return;
+  const [champ, second, third, ...rest] = rows;
+  const champEl = document.createElement("div");
+  champEl.className = "tv-champ";
+  champEl.innerHTML = `
+    <div class="tv-crown">👑</div>
+    ${avatarHTML(champ.address)}
+    <div class="tv-name">${nameHTML(champ.address)}${badgeIcon(tierOf(champ.best))}</div>
+    <div class="tv-votes">${champ.votes}</div>
+    <div class="tv-vlabel">${T("Lifetime votes")}</div>
+    <div class="tv-quote" id="tvChampQuote" hidden></div>`;
+  champEl.addEventListener("click", () => openProfile(champ.address));
+  board.appendChild(champEl);
+  const duo = [second, third].filter(Boolean);
+  if (duo.length) {
+    const duoEl = document.createElement("div");
+    duoEl.className = "tv-duo";
+    duo.forEach((u, i) => {
+      const m = document.createElement("div");
+      m.className = "tv-mini";
+      m.innerHTML = `
+        <div class="tv-rank">${i + 2}</div>
+        ${avatarHTML(u.address)}
+        <div class="tv-mname">${nameHTML(u.address)}${badgeIcon(tierOf(u.best))}</div>
+        <div class="tv-mvotes">${u.votes} ${voteWord(u.votes)}</div>`;
+      m.addEventListener("click", () => openProfile(u.address));
+      duoEl.appendChild(m);
+    });
+    board.appendChild(duoEl);
+  }
+  if (rest.length) {
+    const wrap = document.createElement("div");
+    wrap.className = "tv-chasers";
+    const lab = document.createElement("div");
+    lab.className = "tv-clabel";
+    lab.textContent = T("Chasing the crown");
+    wrap.appendChild(lab);
+    const chips = document.createElement("div");
+    chips.className = "tv-chips";
+    for (const u of rest.slice(0, 7)) {
+      const c = document.createElement("button");
+      c.type = "button";
+      c.className = "tv-chip";
+      c.innerHTML = `${avatarHTML(u.address)}<span class="tv-cname">${nameHTML(u.address)}</span><span class="tv-cvotes">${u.votes}</span>`;
+      c.addEventListener("click", () => openProfile(u.address));
+      chips.appendChild(c);
+    }
+    wrap.appendChild(chips);
+    board.appendChild(wrap);
+  }
+  resolveNames(rows.map((r) => r.address));
+  fillChampQuote(champ.address);
+}
+
 function renderLeaderboard() {
-  const vipEl = $("vipList");
   const topEl = $("topList");
-  vipEl.innerHTML = "";
   topEl.innerHTML = "";
   let entries = [];
   if (DEMO) {
@@ -1318,12 +1477,7 @@ function renderLeaderboard() {
       }
     }
   }
-  const vips = entries
-    .filter((e) => tierOf(e.best, e.badges) > 0)
-    .sort((a, b) => tierOf(b.best, b.badges) - tierOf(a.best, a.badges) || b.best - a.best)
-    .slice(0, 10);
-  vips.forEach((u, i) => vipEl.appendChild(lbRow(u, i + 1, Tf("{tier} badge holder", { tier: tierName(tierOf(u.best, u.badges)) }), u.best, T("best streak"))));
-  $("vipEmpty").hidden = vips.length !== 0;
+  renderVoteBoard(entries);
 
   const tops = [...entries].sort((a, b) => b.best - a.best).slice(0, 10);
   tops.forEach((u, i) => topEl.appendChild(lbRow(u, i + 1, tierOf(u.best, u.badges) ? tierName(tierOf(u.best, u.badges)) : T("No badge yet"), u.best, T("best streak"))));
@@ -2709,7 +2863,7 @@ async function init() {
     $("wallEmpty").hidden = false;
     $("wallEmpty").textContent = T("The wall opens once the StillAlive contract is deployed.");
     $("wallCount").textContent = T("Not deployed yet");
-    $("vipEmpty").hidden = false;
+    $("voteEmpty").hidden = false;
     $("topEmpty").hidden = false;
     $("dirEmpty").hidden = false;
     return;
