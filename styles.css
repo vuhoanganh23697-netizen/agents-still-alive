@@ -135,20 +135,29 @@ nav a:hover{color:var(--ink);box-shadow:inset 0 -3px 0 var(--y)}
 .lb-row .right .k{font-size:10px;font-weight:800;color:#B7BDC6;text-transform:uppercase}
 .rank{font-weight:900;font-size:15px;color:var(--mut);width:22px;text-align:center;flex-shrink:0}
 
-/* ---------- Top Vote podium (the crown) ---------- */
-.tv-champ{position:relative;background:#12151C;color:#fff;border:2.5px solid #F0B90B;border-radius:16px;padding:18px 16px 16px;text-align:center;cursor:pointer;box-shadow:0 0 0 4px rgba(240,185,11,.18)}
-.tv-crown{font-size:30px;line-height:1;margin-bottom:8px}
-.tv-champ .avatar{width:74px;height:74px;border-radius:20px;font-size:32px;margin:0 auto}
-.tv-name{display:flex;align-items:center;justify-content:center;font-weight:900;font-size:19px;margin-top:10px;word-break:break-all}
-.tv-votes{font-size:42px;font-weight:900;color:#F0B90B;line-height:1.05;margin-top:4px}
-.tv-vlabel{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9AA3AD;font-weight:800}
-.tv-quote{margin-top:12px;background:#FFF8E1;color:#4A3F13;border-radius:10px;padding:9px 12px;font-size:13.5px;font-style:italic;line-height:1.45;text-align:left}
-.tv-duo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-.tv-mini{position:relative;background:#FFF8E1;border:2px solid var(--ink);border-radius:14px;padding:12px 8px 10px;text-align:center;cursor:pointer}
-.tv-rank{position:absolute;top:8px;left:11px;font-weight:900;color:#B8860B;font-size:15px}
-.tv-mini .avatar{width:44px;height:44px;border-radius:12px;font-size:19px;margin:0 auto}
-.tv-mname{display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14.5px;margin-top:7px;word-break:break-all}
-.tv-mvotes{font-weight:900;color:#B8860B;font-size:14px;margin-top:2px}
+/* ---------- Top Vote podium — Style 1 throne stage, white (user pick 2026-11-22) ---------- */
+.tv-stage{position:relative;text-align:center;padding:12px 6px 2px;cursor:pointer}
+.tv-stage::before{content:"";position:absolute;left:50%;top:-84px;transform:translateX(-50%);width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(240,185,11,.30) 0%,rgba(240,185,11,.08) 45%,transparent 70%);pointer-events:none}
+.tv-arch{position:absolute;left:50%;top:0;transform:translateX(-50%);width:228px;height:258px;border:2px solid rgba(201,151,4,.45);border-bottom:none;border-radius:116px 116px 0 0;pointer-events:none}
+.tv-crown{position:relative;font-size:38px;line-height:1;filter:drop-shadow(0 4px 12px rgba(240,185,11,.55))}
+.tv-stage .avatar{position:relative;width:82px;height:82px;border-radius:21px;font-size:36px;margin:8px auto 0;border:3px solid #F0B90B;box-shadow:0 0 0 5px rgba(240,185,11,.20),0 10px 22px rgba(24,26,32,.18)}
+.tv-namerow{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;margin-top:11px}
+.tv-laurel{font-size:19px;line-height:1}
+.tv-laurel.flip{transform:scaleX(-1)}
+.tv-name{display:inline-flex;align-items:center;font-weight:900;font-size:21px;word-break:break-all}
+.tv-pedestal{position:relative;margin:15px auto 0;width:248px;max-width:88%;background:linear-gradient(180deg,#F8D33A,#F0B90B 55%,#D9A406);border-radius:10px 10px 4px 4px;padding:8px 0 10px;box-shadow:0 6px 0 #9A7403,0 12px 20px rgba(154,116,3,.25)}
+.tv-pedestal b{font-size:30px;font-weight:900;line-height:1;color:#181A20}
+.tv-pedestal span{display:block;font-size:10px;letter-spacing:.16em;font-weight:800;color:#5C4A02;text-transform:uppercase;margin-top:2px}
+.tv-quote{position:relative;margin:13px auto 0;max-width:430px;color:#474D57;font-style:italic;font-size:13.5px;line-height:1.5}
+.tv-duo{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-top:16px}
+.tv-block{position:relative;border-radius:11px;padding:11px 8px 10px;text-align:center;cursor:pointer}
+.tv-block.silver{background:linear-gradient(180deg,#EDF0F4,#C9D1D9 60%,#AEB8C2);box-shadow:0 5px 0 #7E8894}
+.tv-block.bronze{background:linear-gradient(180deg,#F2C79B,#D89A5F 60%,#B97A3E);box-shadow:0 5px 0 #8F5A28}
+.tv-bnum{font-size:11.5px;font-weight:900;letter-spacing:.12em;color:#3D4652}
+.tv-block .avatar{width:45px;height:45px;border-radius:12px;font-size:19px;margin:5px auto 0}
+.tv-bname{display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14.5px;margin-top:6px;word-break:break-all}
+.tv-bvotes{font-weight:900;font-size:15.5px;margin-top:1px}
+.tv-bvotes small{font-size:10.5px;letter-spacing:.07em}
 .tv-chasers{margin-top:14px}
 .tv-clabel{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8A8378;font-weight:800;margin-bottom:8px}
 .tv-chips{display:flex;flex-wrap:wrap;gap:7px}

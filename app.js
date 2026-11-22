@@ -1409,13 +1409,13 @@ function renderVoteBoard(entries) {
   if (!rows.length) return;
   const [champ, second, third, ...rest] = rows;
   const champEl = document.createElement("div");
-  champEl.className = "tv-champ";
+  champEl.className = "tv-stage";
   champEl.innerHTML = `
+    <div class="tv-arch"></div>
     <div class="tv-crown">👑</div>
     ${avatarHTML(champ.address)}
-    <div class="tv-name">${nameHTML(champ.address)}${badgeIcon(tierOf(champ.best))}</div>
-    <div class="tv-votes">${champ.votes}</div>
-    <div class="tv-vlabel">${T("Lifetime votes")}</div>
+    <div class="tv-namerow"><span class="tv-laurel">🌿</span><span class="tv-name">${nameHTML(champ.address)}${badgeIcon(tierOf(champ.best))}</span><span class="tv-laurel flip">🌿</span></div>
+    <div class="tv-pedestal"><b>${champ.votes}</b><span>${T("Lifetime votes")}</span></div>
     <div class="tv-quote" id="tvChampQuote" hidden></div>`;
   champEl.addEventListener("click", () => openProfile(champ.address));
   board.appendChild(champEl);
@@ -1425,12 +1425,12 @@ function renderVoteBoard(entries) {
     duoEl.className = "tv-duo";
     duo.forEach((u, i) => {
       const m = document.createElement("div");
-      m.className = "tv-mini";
+      m.className = "tv-block " + (i === 0 ? "silver" : "bronze");
       m.innerHTML = `
-        <div class="tv-rank">${i + 2}</div>
+        <div class="tv-bnum">#${i + 2}</div>
         ${avatarHTML(u.address)}
-        <div class="tv-mname">${nameHTML(u.address)}${badgeIcon(tierOf(u.best))}</div>
-        <div class="tv-mvotes">${u.votes} ${voteWord(u.votes)}</div>`;
+        <div class="tv-bname">${nameHTML(u.address)}${badgeIcon(tierOf(u.best))}</div>
+        <div class="tv-bvotes">${u.votes} <small>${voteWord(u.votes).toUpperCase()}</small></div>`;
       m.addEventListener("click", () => openProfile(u.address));
       duoEl.appendChild(m);
     });
