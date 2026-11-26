@@ -349,6 +349,8 @@ a.wallet-btn{text-decoration:none;display:inline-block}
 .wnote .wft{display:flex;align-items:center;gap:8px;border-top:1px solid #e9e6da;padding-top:8px;font-size:11.5px;font-weight:800;color:#5b6470}
 .wnote .wvb{margin-left:auto;background:#14181f;color:#fff;border:none;border-radius:7px;font-weight:700;font-size:11px;padding:5px 10px;cursor:pointer;font-family:ui-monospace,'JetBrains Mono',Menlo,monospace}
 .wnote .wvb:disabled{opacity:.55;cursor:default}
+.wproof{font-size:10px;font-weight:800;letter-spacing:.04em;color:#a87b00;border:1px solid #d9a514;border-radius:999px;padding:1px 6px;white-space:nowrap}
+.wnoproof{font-size:10px;font-weight:700;letter-spacing:.04em;color:inherit;opacity:.45;border:1px solid currentColor;border-radius:999px;padding:1px 6px;white-space:nowrap}
 .wnote .wverify{font-size:11.5px;font-weight:800;color:#8a919c;text-decoration:none;white-space:nowrap}
 .wnote .wverify:hover{color:#14181f}
 .wnote.nft{border-color:rgba(240,185,11,.75);box-shadow:0 0 0 3px rgba(240,185,11,.14),0 8px 20px rgba(0,0,0,.45)}
@@ -408,6 +410,10 @@ a.wallet-btn{text-decoration:none;display:inline-block}
 
 /* About section + footer X link */
 .about-body p{font-size:15.5px;line-height:1.65;font-weight:600;color:#2B2F36;max-width:780px;margin:0 0 12px}
+.docs-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.doc-block{background:#fff;border:2px solid var(--ink);border-radius:14px;padding:16px 18px;box-shadow:4px 4px 0 var(--ink)}
+.doc-block h4{margin:0 0 8px;font-size:16px;font-weight:900;color:var(--ink)}
+.doc-block p{margin:0;font-size:14.5px;line-height:1.6;font-weight:600;color:#2B2F36}
 .about-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
 .about-links a{background:#fff;border:2px solid var(--ink);border-radius:999px;padding:8px 15px;font-weight:900;font-size:14px;color:var(--ink);text-decoration:none;box-shadow:3px 3px 0 var(--ink)}
 .about-links a:hover{transform:translate(-1px,-1px)}
